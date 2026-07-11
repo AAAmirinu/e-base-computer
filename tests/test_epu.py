@@ -6,7 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from epu import MAX_FIELD_CELLS, EPU, EPUError, parse_program
+from epu import MAX_BANK_CELLS, MAX_FIELD_CELLS, EPU, EPUError, parse_program
 
 
 class EPUTests(unittest.TestCase):
@@ -131,6 +131,15 @@ class EPUTests(unittest.TestCase):
         with self.assertRaises(EPUError) as large_field:
             epu.step(f"EALLOC EP0, COLD, {MAX_FIELD_CELLS + 1}")
         self.assertEqual(large_field.exception.code, "MEMORY_ERROR")
+
+    def test_allocation_cannot_exceed_a_bank_limit(self) -> None:
+        epu = EPU()
+        epu.step(f"EALLOC EP0, COLD, {MAX_BANK_CELLS}")
+
+        with self.assertRaises(EPUError) as captured:
+            epu.step("EALLOC EP1, COLD, 1")
+
+        self.assertEqual(captured.exception.code, "MEMORY_ERROR")
 
 
 if __name__ == "__main__":

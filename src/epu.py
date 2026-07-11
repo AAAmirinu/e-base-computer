@@ -18,7 +18,7 @@ from ecomputer import EWord, EWordError
 
 PARTITION_STEPS = (3, 9, 27, 81, 243)
 MAX_FIELD_CELLS = 4_096
-MAX_BANK_CELLS = 16_384
+MAX_BANK_CELLS = 4_096
 REGISTER_RE = re.compile(r"^ER(?:[0-9]|1[0-5])$")
 POINTER_RE = re.compile(r"^EP[0-7]$")
 
