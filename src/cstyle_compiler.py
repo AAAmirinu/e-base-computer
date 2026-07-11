@@ -60,8 +60,11 @@ class CStyleCompiler:
         self._label_counter = 0
         self._output_counter = 0
 
-        while not self._at_end():
-            self._statement()
+        try:
+            while not self._at_end():
+                self._statement()
+        except RecursionError as exc:
+            raise CStyleCompileError("source nesting is too deep") from exc
 
         return CompiledProgram(source, "\n".join(self._assembly) + "\n", dict(self._symbols))
 
@@ -329,6 +332,7 @@ def _tokenize(source: str) -> List[Token]:
 
 
 def _strip_comments(source: str) -> str:
+    source = source.lstrip("\ufeff")
     lines: List[str] = []
     for line in source.splitlines():
         if "//" in line:

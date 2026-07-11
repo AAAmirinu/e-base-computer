@@ -21,6 +21,10 @@ from epu_scoring import score_timeline
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_WEB_ROOT = ROOT / "web" / "playground"
+MAX_REQUEST_BYTES = 1_000_000
+MAX_SOURCE_CHARS = 100_000
+MAX_WEB_PRECISION = 12
+MAX_WEB_STEPS = 100_000
 
 
 def playground_asset_path(name: str) -> Path:
@@ -68,11 +72,21 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         try:
-            length = int(self.headers.get("Content-Length", "0"))
+            length = int(self.headers.get("Content-Length", ""))
+            if length < 0:
+                raise ValueError("Content-Length must not be negative")
+            if length > MAX_REQUEST_BYTES:
+                self._send_json(
+                    {"ok": False, "error": "request body is too large"},
+                    413,
+                )
+                return
             request = json.loads(self.rfile.read(length).decode("utf-8"))
             response, status = run_payload(request)
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            response, status = {"ok": False, "error": f"invalid request: {exc}"}, 400
         except Exception as exc:  # pragma: no cover - last-resort HTTP safety net
-            response, status = {"ok": False, "error": str(exc)}, 500
+            response, status = {"ok": False, "error": "unexpected server error"}, 500
         self._send_json(response, status)
 
     def log_message(self, format: str, *args: object) -> None:
@@ -98,11 +112,37 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
-def run_payload(request: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
-    source = str(request.get("source", ""))
-    language = str(request.get("language", "c"))
-    precision = int(request.get("precision", 8))
-    max_steps = int(request.get("maxSteps", 10_000))
+def run_payload(request: Any) -> Tuple[Dict[str, Any], int]:
+    """Run a browser request while keeping malformed input on the 4xx path."""
+
+    if not isinstance(request, dict):
+        return {"ok": False, "error": "request body must be a JSON object"}, 400
+
+    source = request.get("source", "")
+    language = request.get("language", "c")
+    if not isinstance(source, str):
+        return {"ok": False, "error": "source must be a string"}, 400
+    if len(source) > MAX_SOURCE_CHARS:
+        return {"ok": False, "error": "source is too large"}, 413
+    if not isinstance(language, str):
+        return {"ok": False, "error": "language must be a string"}, 400
+
+    try:
+        precision = int(request.get("precision", 8))
+        max_steps = int(request.get("maxSteps", 10_000))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "precision and maxSteps must be integers"}, 400
+    if not 0 <= precision <= MAX_WEB_PRECISION:
+        return {
+            "ok": False,
+            "error": f"precision must be between 0 and {MAX_WEB_PRECISION}",
+        }, 400
+    if not 1 <= max_steps <= MAX_WEB_STEPS:
+        return {
+            "ok": False,
+            "error": f"maxSteps must be between 1 and {MAX_WEB_STEPS}",
+        }, 400
+
     try:
         if language == "c":
             compiled = CStyleCompiler(precision=precision).compile(source)

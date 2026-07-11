@@ -91,6 +91,7 @@ def check_required_files(audit: Audit) -> None:
         ".github/ISSUE_TEMPLATE/compiler_challenge.md",
         ".github/ISSUE_TEMPLATE/good_first_experiment.md",
         "docs/compiler_challenge.md",
+        "docs/cstyle_compiler.md",
         "docs/e_word_model.md",
         "docs/epu_instruction_set.md",
         "docs/epu_spec.md",
@@ -161,6 +162,10 @@ def check_public_docs(audit: Audit) -> None:
     audit.require_text(
         ROOT / "docs" / "compiler_challenge.md",
         ["total_score=373.1", "参加者ワークフロー", "--assembly-dir", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "変更してはいけないもの", "タイブレーク", "Issues` -> `New issue` -> `Compiler challenge entry"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "cstyle_compiler.md",
+        ["C-like compiler", "not supported", "source nesting is too deep"],
     )
     audit.require_text(
         ROOT / "CHANGELOG.md",

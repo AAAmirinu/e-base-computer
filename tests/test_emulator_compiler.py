@@ -85,6 +85,11 @@ class CStyleCompilerTests(unittest.TestCase):
         self.assertEqual(result.output["OUT2"], 5.0)
         self.assertEqual(result.output["OUT3"], -14.0)
 
+    def test_utf8_bom_source_compiles(self) -> None:
+        result = CStyleCompiler(precision=8).compile_and_run("\ufefflet x = 2; print(x);")
+
+        self.assertEqual(result.output["OUT0"], 2.0)
+
     def test_while_factorial(self) -> None:
         result = CStyleCompiler(precision=8).compile_and_run(
             """

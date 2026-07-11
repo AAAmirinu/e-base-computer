@@ -9,6 +9,13 @@ All notable changes to this project are documented here.
   project-name use, and the public technical boundary.
 - Removed worldbuilding and narrative material from the public documentation
   set and excluded local private materials from release bundles.
+- Hardened Playground request validation so malformed JSON, invalid limits, large
+  source bodies, numeric overflow, and deep source nesting return client errors
+  instead of unhandled server failures.
+- Rejected non-finite E-word values consistently across the emulator, CLI, and
+  Playground, and accepted UTF-8 BOM-prefixed C-like source files on Windows.
+- Linked the live GitHub Pages Playground from the README and expanded the
+  C-like compiler reference with supported syntax, limits, and error guidance.
 
 ## 0.1.0 - Initial Public Preview
 

@@ -1,4 +1,6 @@
 import contextlib
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
 import io
 import json
 from pathlib import Path
@@ -6,6 +8,7 @@ from importlib import resources
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +29,7 @@ from epu_experiments import get_experiment
 from epu_leaderboard import expand_submission_paths, load_leaderboard, select_best_per_participant
 from epu_scoring import score_timeline
 from epu_spec import spec_payload
-from web_playground import playground_asset_path, run_payload, samples_payload
+from web_playground import PlaygroundHandler, playground_asset_path, run_payload, samples_payload
 from web_playground import challenge_payload
 
 
@@ -456,6 +459,69 @@ class WebPayloadTests(unittest.TestCase):
 
         self.assertEqual(status, 400)
         self.assertFalse(payload["ok"])
+
+    def test_run_payload_rejects_malformed_input_without_raising(self) -> None:
+        cases = (
+            [],
+            {"source": "print(1);", "precision": "not-a-number"},
+            {"source": "print(1);", "maxSteps": "not-a-number"},
+            {"source": ["print(1);"]},
+            {"source": "x" * 100_001},
+            {"source": "print(1);", "precision": 13},
+            {"source": "print(1);", "maxSteps": 0},
+        )
+
+        for request in cases:
+            with self.subTest(request=request):
+                payload, status = run_payload(request)
+                self.assertIn(status, {400, 413})
+                self.assertFalse(payload["ok"])
+
+    def test_run_payload_rejects_numeric_overflow_and_deep_nesting(self) -> None:
+        cases = (
+            {"source": "print(1e999);"},
+            {"source": "print(" + "(" * 1500 + "1" + ")" * 1500 + ");"},
+        )
+
+        for request in cases:
+            with self.subTest(source=request["source"][:20]):
+                payload, status = run_payload(request)
+                self.assertEqual(status, 400)
+                self.assertFalse(payload["ok"])
+
+
+class WebHandlerTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), PlaygroundHandler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self) -> None:
+        self.server.shutdown()
+        self.thread.join()
+        self.server.server_close()
+
+    def test_invalid_json_and_request_values_return_client_errors(self) -> None:
+        cases = (
+            b"{",
+            json.dumps({"source": "print(1);", "precision": "not-a-number"}).encode(),
+        )
+
+        for body in cases:
+            with self.subTest(body=body[:20]):
+                connection = HTTPConnection(*self.server.server_address)
+                connection.request(
+                    "POST",
+                    "/api/run",
+                    body=body,
+                    headers={"Content-Type": "application/json"},
+                )
+                response = connection.getresponse()
+                payload = json.loads(response.read())
+                connection.close()
+
+                self.assertEqual(response.status, 400)
+                self.assertFalse(payload["ok"])
 
 
 if __name__ == "__main__":

@@ -21,7 +21,8 @@ ebase run .\examples\challenges\factorial.cbase --json
 ebase-playground
 ```
 
-公開後は `https://OWNER.github.io/REPO/` を「Try the Playground」リンクとしてREADME冒頭に置けます。
+[Try the Playground](https://aaamirinu.github.io/e-base-computer/) では、インストールなしで
+静的版のサンプルと E 進の状態表示を試せます。
 GitHub Pages版はデモ用の静的Playgroundです。公式チャレンジ提出用JSONは、CLIまたはローカルの
 `ebase-playground` Pythonサーバ版で取り直してください。
 

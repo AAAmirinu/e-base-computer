@@ -6,7 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ecomputer import EComputer, EWord, e
+from ecomputer import EComputer, EWord, EWordError, e
 
 
 class EWordTests(unittest.TestCase):
@@ -40,7 +40,14 @@ class EWordTests(unittest.TestCase):
 
         self.assertIn("EA =", output[0])
 
+    def test_rejects_non_finite_values(self) -> None:
+        with self.assertRaises(EWordError):
+            EWord.from_real(float("inf"))
+        with self.assertRaises(EWordError):
+            EWord.from_real(float("nan"))
+        with self.assertRaises(EWordError):
+            EWord.from_digits({0: float("inf")})
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -13,7 +13,7 @@ from math import e, floor
 import re
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple, Union
 
-from ecomputer import EWord
+from ecomputer import EWord, EWordError
 
 
 PARTITION_STEPS = (3, 9, 27, 81, 243)
@@ -226,7 +226,12 @@ class EPU:
 
         try:
             targets = self._execute(parsed)
-        except EPUError as exc:
+        except (EPUError, EWordError, OverflowError) as caught:
+            exc = (
+                caught
+                if isinstance(caught, EPUError)
+                else EPUError("NUMERIC_ERROR", str(caught))
+            )
             self.last_exception = exc
             exception_code = exc.code
             self.sr.discard("OK")
@@ -235,7 +240,7 @@ class EPU:
                 self.trace.append(str(exc))
             else:
                 self._record_event(parsed, before, self.visual_snapshot(), targets, exception_code)
-                raise
+                raise exc
 
         self._apply_heat(parsed.op, targets)
         self._cool_all()

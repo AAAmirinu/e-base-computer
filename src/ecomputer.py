@@ -7,15 +7,26 @@ floats, so it demonstrates the rules rather than exact ideal physics.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import e, floor, isclose, log
+from math import e, floor, isclose, isfinite, log
 from typing import Dict, Iterable, List, Mapping, Tuple
 
 
 EPSILON = 1e-12
 
 
+class EWordError(ValueError):
+    """Raised when a value cannot be represented by the finite E-word model."""
+
+
 def _clean_digits(digits: Mapping[int, float]) -> Dict[int, float]:
-    return {int(k): float(v) for k, v in digits.items() if abs(v) > EPSILON}
+    cleaned: Dict[int, float] = {}
+    for power, digit in digits.items():
+        value = float(digit)
+        if not isfinite(value):
+            raise EWordError("E-word digits must be finite")
+        if abs(value) > EPSILON:
+            cleaned[int(power)] = value
+    return cleaned
 
 
 @dataclass(frozen=True)
@@ -43,11 +54,14 @@ class EWord:
         can be represented with one digit d in [1, e) at an integer exponent.
         """
 
+        value = float(value)
+        if not isfinite(value):
+            raise EWordError("E-word values must be finite")
         if abs(value) <= EPSILON:
             return EWord.zero()
 
         sign = -1 if value < 0 else 1
-        magnitude = abs(float(value))
+        magnitude = abs(value)
         exponent = floor(log(magnitude, e))
         digit = magnitude / (e**exponent)
 
@@ -94,7 +108,15 @@ class EWord:
         return EWord(self.sign, work)
 
     def to_real(self) -> float:
-        return self.sign * sum(digit * (e**power) for power, digit in self.digits.items())
+        try:
+            value = self.sign * sum(
+                digit * (e**power) for power, digit in self.digits.items()
+            )
+        except OverflowError as exc:
+            raise EWordError("E-word value exceeds finite floating point range") from exc
+        if not isfinite(value):
+            raise EWordError("E-word value exceeds finite floating point range")
+        return value
 
     def shift(self, powers: int) -> "EWord":
         return EWord(self.sign, {k + powers: v for k, v in self.digits.items()})
@@ -187,4 +209,3 @@ class EComputer:
             return
 
         raise ValueError(f"unknown opcode: {opcode}")
-

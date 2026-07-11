@@ -113,6 +113,14 @@ class EPUTests(unittest.TestCase):
         self.assertIn("digits", timeline[1]["after"]["er"]["ER1"])
         self.assertIn("OBSERVATION_DIRTY", timeline[2]["flags"])
 
+    def test_non_finite_literal_is_an_epu_error(self) -> None:
+        epu = EPU()
+
+        with self.assertRaises(EPUError) as captured:
+            epu.step("ECONST ER0, 1e999")
+
+        self.assertEqual(captured.exception.code, "NUMERIC_ERROR")
+
 
 if __name__ == "__main__":
     unittest.main()
