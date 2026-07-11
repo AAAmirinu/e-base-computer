@@ -10,3 +10,10 @@ build/
 .ai/audits/
 generated-assembly/
 private_materials/
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key
