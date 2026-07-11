@@ -14,6 +14,8 @@ All notable changes to this project are documented here.
   instead of unhandled server failures.
 - Rejected non-finite E-word values consistently across the emulator, CLI, and
   Playground, and accepted UTF-8 BOM-prefixed C-like source files on Windows.
+- Added documented EPU field and bank allocation limits so a single assembly
+  program cannot exhaust the Playground's local memory model.
 - Linked the live GitHub Pages Playground from the README and expanded the
   C-like compiler reference with supported syntax, limits, and error guidance.
 

@@ -39,7 +39,8 @@ ebase spec --json
 
 ### Eメモリ
 
-- `EALLOC EPdst, bank, length ; mode=EWORD exponent_offset=0`: Eフィールドを確保します。
+- `EALLOC EPdst, bank, length ; mode=EWORD exponent_offset=0`: Eフィールドを確保します。v0エミュレーターでは
+  1フィールドは最大4096セル、1バンクは合計最大16384セルです。
 - `ELOAD ERdst, EPsrc`: EフィールドからEワードを復元します。
 - `ESTORE EPdst, ERsrc`: EワードをEフィールドへ格納します。
 - `EMODE target, mode`: レジスタまたはフィールドの解釈モードを変えます。

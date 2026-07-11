@@ -17,6 +17,8 @@ from ecomputer import EWord, EWordError
 
 
 PARTITION_STEPS = (3, 9, 27, 81, 243)
+MAX_FIELD_CELLS = 4_096
+MAX_BANK_CELLS = 16_384
 REGISTER_RE = re.compile(r"^ER(?:[0-9]|1[0-5])$")
 POINTER_RE = re.compile(r"^EP[0-7]$")
 
@@ -226,11 +228,16 @@ class EPU:
 
         try:
             targets = self._execute(parsed)
-        except (EPUError, EWordError, OverflowError) as caught:
+        except (EPUError, EWordError, OverflowError, ValueError) as caught:
             exc = (
                 caught
                 if isinstance(caught, EPUError)
-                else EPUError("NUMERIC_ERROR", str(caught))
+                else EPUError(
+                    "NUMERIC_ERROR"
+                    if isinstance(caught, (EWordError, OverflowError))
+                    else "BAD_OPERAND",
+                    str(caught),
+                )
             )
             self.last_exception = exc
             exception_code = exc.code
@@ -673,8 +680,18 @@ class EPU:
     ) -> EPointer:
         if length <= 0:
             self._fail("MEMORY_ERROR", "EALLOC length must be positive")
+        if length > MAX_FIELD_CELLS:
+            self._fail(
+                "MEMORY_ERROR",
+                f"EALLOC length exceeds {MAX_FIELD_CELLS} cells per field",
+            )
         self._ensure_bank(bank_id)
         bank = self.banks[bank_id]
+        if len(bank) + length > MAX_BANK_CELLS:
+            self._fail(
+                "MEMORY_ERROR",
+                f"EALLOC exceeds {MAX_BANK_CELLS} cells in bank {bank_id}",
+            )
         meta = self.bank_meta[bank_id]
         offset = len(bank)
         for _ in range(length):

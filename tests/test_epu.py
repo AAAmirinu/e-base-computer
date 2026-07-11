@@ -6,7 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from epu import EPU, EPUError, parse_program
+from epu import MAX_FIELD_CELLS, EPU, EPUError, parse_program
 
 
 class EPUTests(unittest.TestCase):
@@ -120,6 +120,17 @@ class EPUTests(unittest.TestCase):
             epu.step("ECONST ER0, 1e999")
 
         self.assertEqual(captured.exception.code, "NUMERIC_ERROR")
+
+    def test_bad_numeric_operands_and_large_fields_are_epu_errors(self) -> None:
+        epu = EPU()
+
+        with self.assertRaises(EPUError) as invalid_length:
+            epu.step("EALLOC EP0, COLD, not-a-number")
+        self.assertEqual(invalid_length.exception.code, "BAD_OPERAND")
+
+        with self.assertRaises(EPUError) as large_field:
+            epu.step(f"EALLOC EP0, COLD, {MAX_FIELD_CELLS + 1}")
+        self.assertEqual(large_field.exception.code, "MEMORY_ERROR")
 
 
 if __name__ == "__main__":
