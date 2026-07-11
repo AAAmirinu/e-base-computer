@@ -1,5 +1,6 @@
+const staticOnlyHost = window.location.protocol === "file:" || (window.location.hostname || "").endsWith(".github.io");
 let samples = window.EBaseStaticRuntime.samples();
-let engineMode = "server";
+let engineMode = staticOnlyHost ? "static" : "server";
 const editor = document.getElementById("sourceEditor");
 const sampleSelect = document.getElementById("sampleSelect");
 const languageSelect = document.getElementById("languageSelect");
@@ -49,6 +50,9 @@ async function initialize() {
 }
 
 async function fetchSamples() {
+  if (staticOnlyHost) {
+    return window.EBaseStaticRuntime.samples();
+  }
   try {
     const response = await fetch("/api/samples");
     const payload = await response.json();
