@@ -5,9 +5,13 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
-import tomllib
 from typing import Iterable, List
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.9 and 3.10
+    import tomli as tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]

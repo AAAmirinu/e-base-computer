@@ -30,7 +30,7 @@ docker run --rm -p 8765:8765 e-base-computer
 推奨設定:
 
 - Repository name: `e-base-computer`
-- Visibility: Public
+- Visibility: Public（公開準備中はPrivateで進め、公開時に手動で切り替えてよい）
 - Description: `A fictional E-base computer emulator, C-like compiler, playground, and compiler challenge kit.`
 - Topics:
   - `emulator`
@@ -133,6 +133,8 @@ Actionsで次のjobが通ることを確認します。
 `pages` は `web/playground/` を静的Playgroundとして公開します。公開URLで画面上のengine表示が
 `static fallback` になり、サンプルの `Run` と `Run Official Suite` が動くことを確認してください。
 Pages workflowはdeploy前に `node scripts/static_playground_smoke.cjs` も実行します。
+Privateリポジトリでは `pages` job はスキップされます。Publicへ切り替えた後に、リポジトリ設定で
+PagesのSourceをGitHub Actionsに設定すると、次の `main` push または手動実行でdeployできます。
 
 ## 6. 初回Releaseを作成
 

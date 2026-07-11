@@ -25,6 +25,7 @@ def main() -> int:
         installed_cwd = temp / "installed-cwd"
         installed_cwd.mkdir()
         run([sys.executable, "scripts/publication_audit.py"])
+        run([sys.executable, "-m", "pip", "install", "-e", "."])
         run([sys.executable, "scripts/finalize_project_urls.py", "owner/repo"])
         run([sys.executable, "scripts/finalize_project_urls.py", "owner/repo", "--playground-url", "https://play.example.test/"])
         bundle = temp / "e-base-computer-source.zip"
