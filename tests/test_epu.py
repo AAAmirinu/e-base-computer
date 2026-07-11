@@ -52,6 +52,25 @@ class EPUTests(unittest.TestCase):
         self.assertLess(epu.er["ER1"].current_partition, 81)
         self.assertIsNotNone(epu.er["ER1"].quantized_state)
 
+    def test_quantization_requires_a_supported_partition_step(self) -> None:
+        for requested in (0, 10, 244):
+            with self.subTest(requested=requested):
+                epu = EPU()
+                epu.run("ECONST ER0, 1.2")
+
+                with self.assertRaises(EPUError) as captured:
+                    epu.step(f"EQUANT ER1, ER0, {requested}")
+
+                self.assertEqual(captured.exception.code, "BAD_OPERAND")
+
+    def test_qos_requires_a_supported_partition_step(self) -> None:
+        epu = EPU()
+
+        with self.assertRaises(EPUError) as captured:
+            epu.step("EQOS ER0 ; min_partition=10")
+
+        self.assertEqual(captured.exception.code, "BAD_OPERAND")
+
     def test_precision_error_when_degrade_is_denied(self) -> None:
         epu = EPU()
         epu.run("ECONST ER0, 1.2")

@@ -910,6 +910,12 @@ class EPU:
     def _allowed_partition(
         self, requested: int, temperature: float, guard_band: float, allow_degrade: bool
     ) -> int:
+        if requested not in PARTITION_STEPS:
+            allowed = ", ".join(str(step) for step in PARTITION_STEPS)
+            self._fail(
+                "BAD_OPERAND",
+                f"partition must be one of {allowed}, got {requested}",
+            )
         q_max = self._max_partition(temperature, guard_band)
         if requested <= q_max:
             return requested

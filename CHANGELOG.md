@@ -18,6 +18,11 @@ All notable changes to this project are documented here.
   program cannot exhaust the Playground's local memory model.
 - Linked the live GitHub Pages Playground from the README and expanded the
   C-like compiler reference with supported syntax, limits, and error guidance.
+- Added a technical behavior guide covering heat costs, cooling, memory-bank
+  differences, safe quantization partitions, degradation, observation, refresh,
+  and scoring.
+- Enforced the documented partition ladder (`3, 9, 27, 81, 243`) in both the
+  Python runtime and static Playground.
 
 ## 0.1.0 - Initial Public Preview
 

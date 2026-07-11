@@ -91,6 +91,7 @@ def check_required_files(audit: Audit) -> None:
         ".github/ISSUE_TEMPLATE/compiler_challenge.md",
         ".github/ISSUE_TEMPLATE/good_first_experiment.md",
         "docs/compiler_challenge.md",
+        "docs/behavior_model.md",
         "docs/cstyle_compiler.md",
         "docs/e_word_model.md",
         "docs/epu_instruction_set.md",
@@ -144,6 +145,8 @@ def check_public_docs(audit: Audit) -> None:
             "GitHub Codespaces",
             "GitHub Pages",
             "Run Official Suite",
+            "Eならではの挙動",
+            "docs/behavior_model.md",
             "Copy Program Link",
             "ebase challenge --json",
             "ebase challenge --assembly-dir",
@@ -157,8 +160,26 @@ def check_public_docs(audit: Audit) -> None:
     audit.require_text(ROOT / "LICENSE", ["Apache License", "Version 2.0"])
     audit.require_text(ROOT / "NOTICE", ["E-base Computer", "AAAmirinu"])
     audit.require_text(ROOT / "TRADEMARKS.md", ["permission to use these names", "distinct project name"])
-    audit.require_text(ROOT / "TECHNICAL_SCOPE.md", ["technical E-base Computer implementation", "not licensed by this repository"])
+    audit.require_text(
+        ROOT / "TECHNICAL_SCOPE.md",
+        [
+            "technical E-base Computer implementation",
+            "deterministic behavior models",
+            "docs/behavior_model.md",
+            "not licensed by this repository",
+        ],
+    )
     audit.require_text(ROOT / "docs" / "e_word_model.md", ["value = sign * sum", "authoritative"])
+    audit.require_text(
+        ROOT / "docs" / "behavior_model.md",
+        [
+            "effective_guard(T)",
+            "THERMAL_PRECISION_ERROR",
+            "T_refreshed",
+            "degraded_events * 40",
+            "authoritative runtime",
+        ],
+    )
     audit.require_text(
         ROOT / "docs" / "compiler_challenge.md",
         ["total_score=373.1", "参加者ワークフロー", "--assembly-dir", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "変更してはいけないもの", "タイブレーク", "Issues` -> `New issue` -> `Compiler challenge entry"],
@@ -177,7 +198,7 @@ def check_public_docs(audit: Audit) -> None:
     )
     audit.require_text(
         ROOT / "docs" / "epu_instruction_set.md",
-        ["ebase spec --json", "EQUANT", "DEGRADED", "EJGTZ"],
+        ["ebase spec --json", "EQUANT", "DEGRADED", "EJGTZ", "BAD_OPERAND", "behavior_model.md"],
     )
     audit.require_text(
         ROOT / "docs" / "playground.md",

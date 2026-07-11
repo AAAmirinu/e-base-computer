@@ -194,13 +194,13 @@ if (signal >= 0) {
         break;
       case "EQOS": {
         const word = getRegister(state, args[0]);
-        word.min_partition = Number(options.min_partition || 3);
+        word.min_partition = requirePartition(options.min_partition || 3, "min_partition");
         word.allow_degrade = options.degrade !== "deny";
         heatRegister(state, args[0], 0.01);
         break;
       }
       case "EQUANT": {
-        const requested = Number(args[2] || 3);
+        const requested = requirePartition(args[2] || 3, "partition");
         const src = getRegister(state, args[1]);
         const qMax = safePartition(src.temperature);
         const current = Math.min(requested, qMax);
@@ -640,6 +640,14 @@ if (signal >= 0) {
     if (temperature > 0.8) return 81;
     if (temperature > 0.35) return 243;
     return 243;
+  }
+
+  function requirePartition(value, label) {
+    const partition = Number(value);
+    if (!Number.isInteger(partition) || !PARTITIONS.includes(partition)) {
+      throw new Error(`${label} must be one of ${PARTITIONS.join(", ")}, got ${value}`);
+    }
+    return partition;
   }
 
   function thermalPayload(wordValue) {

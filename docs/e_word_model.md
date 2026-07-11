@@ -29,6 +29,10 @@ Arithmetic, normalization, quantization, refresh, and their deterministic
 scoring effects are specified by [epu_spec.md](epu_spec.md) and exposed by
 `ebase spec --json`.
 
+For a worked explanation of heat costs, cooling, safe partitions, degradation,
+observation, refresh, and challenge scoring, see
+[behavior_model.md](behavior_model.md).
+
 ## Scope
 
 The model exists to make compiler experiments reproducible. The authoritative

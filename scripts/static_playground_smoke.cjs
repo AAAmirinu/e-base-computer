@@ -60,6 +60,17 @@ function smokeRuntime(runtimePath) {
   assert.strictEqual(asmResult.output.OUT0, 7.5, `${runtimePath} asm output`);
   assert(asmResult.score.steps >= 2, `${runtimePath} asm score`);
 
+  assert.throws(
+    () => runtime.run({
+      source: "ECONST ER0, 1.2\nEQUANT ER1, ER0, 10\n",
+      language: "asm",
+      precision: 8,
+      maxSteps: 10000,
+    }),
+    /partition must be one of 3, 9, 27, 81, 243/,
+    `${runtimePath} rejects unsupported partition`,
+  );
+
   const challenge = runtime.runChallengeSuite();
   assert.strictEqual(challenge.ok, true, `${runtimePath} challenge ok`);
   assert.strictEqual(challenge.static_fallback, true, `${runtimePath} challenge static fallback`);
