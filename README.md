@@ -13,8 +13,8 @@
 前提: Python 3.11以上を用意し、GitHubからcloneしたcheckoutのルートで実行します。
 
 ```powershell
-git clone https://github.com/OWNER/REPO.git
-cd REPO
+git clone https://github.com/AAAmirinu/e-base-computer.git
+cd e-base-computer
 python -m pip install -e .
 ebase demo --run
 ebase run .\examples\challenges\factorial.cbase --json
@@ -182,8 +182,6 @@ CLIとPlaygroundで共有している組み込みサンプル5件です。
 - リフレッシュ回数
 
 詳細は [docs/compiler_challenge.md](docs/compiler_challenge.md) を参照してください。
-チャレンジ開催告知のたたき台は [docs/challenge_kickoff.md](docs/challenge_kickoff.md) にあります。
-主催者向けの運営手順は [docs/challenge_operations.md](docs/challenge_operations.md) にあります。
 提出はGitHubの `Issues` -> `New issue` -> `Compiler challenge entry` から作ります。
 テンプレート本文は [.github/ISSUE_TEMPLATE/compiler_challenge.md](.github/ISSUE_TEMPLATE/compiler_challenge.md) です。
 Issue本文には `ebase challenge --json` またはローカル版Playgroundの `Copy JSON` 結果を貼る形を基本にします。
@@ -229,14 +227,9 @@ GitHub Actionsでも同じテストとデモを実行します。
 - `examples/` - デモとチャレンジ課題
 - `examples/compiler_starter/` - 外部コンパイラ参加用のbaseline `.epu` 生成スターター
 - `tests/` - 回帰テスト
-- `docs/` - 技術仕様、チャレンジ説明、公開チェックリスト
+- `docs/` - 技術仕様、利用方法、チャレンジ説明
 
-## 公開前チェック
-
-公開準備の残タスクは [docs/release_checklist.md](docs/release_checklist.md) にまとめています。
-GitHub公開の手順は [docs/publish_to_github.md](docs/publish_to_github.md) にまとめています。
 貢献の入口は [CONTRIBUTING.md](CONTRIBUTING.md) と `.github/ISSUE_TEMPLATE/` を参照してください。
-初回公開向けの説明文は [docs/release_notes_v0_1.md](docs/release_notes_v0_1.md)、
 変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。
 
 ## License and Scope
@@ -245,10 +238,3 @@ GitHub公開の手順は [docs/publish_to_github.md](docs/publish_to_github.md) 
 [NOTICE](NOTICE) の帰属表示を保持してください。プロジェクト名とロゴの扱いは
 [TRADEMARKS.md](TRADEMARKS.md)、公開範囲は [TECHNICAL_SCOPE.md](TECHNICAL_SCOPE.md)
 を参照してください。E進ワードの最小技術モデルは [docs/e_word_model.md](docs/e_word_model.md) にあります。
-
-公開直前の軽量監査:
-
-```powershell
-python .\scripts\publication_audit.py
-python .\scripts\make_release_bundle.py --dry-run
-```

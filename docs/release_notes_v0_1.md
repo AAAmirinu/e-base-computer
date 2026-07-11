@@ -84,21 +84,9 @@ Codespaces/devcontainer support is included through `.devcontainer/devcontainer.
 The code and technical documentation are distributed under Apache-2.0. Keep
 the attribution in `NOTICE`; see `TRADEMARKS.md` for project-name and logo use.
 
-## Verification
-
-Before publishing, run:
-
-```powershell
-python .\scripts\publication_audit.py --full
-python .\scripts\release_smoke.py
-```
-
-`publication_audit.py` checks public-facing docs, README assets, GitHub templates, packaged Playground assets, official challenge baseline, and instruction spec coverage. `release_smoke.py` builds a wheel, installs it into a fresh virtual environment, and checks CLI plus Playground HTTP endpoints.
-
 ## Known Limits
 
 - This is an experimental software model, not a real CPU model.
 - The physics model is intentionally simple and tuned for playability.
 - The static Pages Playground is a lightweight browser fallback. Official challenge rankings should be checked with the CLI or Python server.
 - Docker local smoke needs Docker Desktop or another Docker daemon to be running.
-- Project URLs should be filled in with `scripts/finalize_project_urls.py` once the final GitHub repository URL is known.

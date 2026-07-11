@@ -95,10 +95,6 @@ def check_required_files(audit: Audit) -> None:
         "docs/epu_instruction_set.md",
         "docs/epu_spec.md",
         "docs/playground.md",
-        "docs/publish_to_github.md",
-        "docs/challenge_kickoff.md",
-        "docs/challenge_operations.md",
-        "docs/release_checklist.md",
         "docs/release_notes_v0_1.md",
         "docs/assets/playground-challenge.png",
         "examples/compiler_starter/README.md",
@@ -124,6 +120,11 @@ def check_required_files(audit: Audit) -> None:
         "docs/theory.md",
         "docs/thermal_resource_management.md",
         "docs/visualization_strategy.md",
+        "docs/challenge_kickoff.md",
+        "docs/challenge_operations.md",
+        "docs/publish_to_github.md",
+        "docs/release_checklist.md",
+        "docs/visual_qa.md",
     ]
     for name in excluded_worldbuilding:
         audit.check(f"{name} is excluded from the public repository", not (ROOT / name).exists())
@@ -147,10 +148,7 @@ def check_public_docs(audit: Audit) -> None:
             "ebase challenge --assembly-dir",
             "emit_baseline_assembly.py",
             "ebase leaderboard",
-            "make_release_bundle.py",
             "Issues` -> `New issue` -> `Compiler challenge entry",
-            "docs/challenge_kickoff.md",
-            "docs/challenge_operations.md",
             "TECHNICAL_SCOPE.md",
             "TRADEMARKS.md",
         ],
@@ -162,11 +160,7 @@ def check_public_docs(audit: Audit) -> None:
     audit.require_text(ROOT / "docs" / "e_word_model.md", ["value = sign * sum", "authoritative"])
     audit.require_text(
         ROOT / "docs" / "compiler_challenge.md",
-        ["total_score=373.1", "参加者ワークフロー", "--assembly-dir", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "変更してはいけないもの", "タイブレーク", "ebase leaderboard", "--best-per-participant", "Issues` -> `New issue` -> `Compiler challenge entry"],
-    )
-    audit.require_text(
-        ROOT / "docs" / "challenge_operations.md",
-        ["ebase leaderboard", "valid=false", "--best-per-participant", "python -m epu_cli", "--assembly-dir", "公式記録"],
+        ["total_score=373.1", "参加者ワークフロー", "--assembly-dir", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "変更してはいけないもの", "タイブレーク", "Issues` -> `New issue` -> `Compiler challenge entry"],
     )
     audit.require_text(
         ROOT / "CHANGELOG.md",
@@ -174,11 +168,7 @@ def check_public_docs(audit: Audit) -> None:
     )
     audit.require_text(
         ROOT / "docs" / "release_notes_v0_1.md",
-        ["E-base Computer v0.1.0", "Run Official Suite", "Good First Contributions", "Known Limits", "Static GitHub Pages", "Copy Program Link", "ebase leaderboard", "finalize_project_urls.py"],
-    )
-    audit.require_text(
-        ROOT / "docs" / "publish_to_github.md",
-        ["OWNER/REPO", "project.urls", "finalize_project_urls.py", "make_release_bundle.py", "--playground-url", "docker-smoke", "pages", "ebase leaderboard", "v0.1.0"],
+        ["E-base Computer v0.1.0", "Run Official Suite", "Good First Contributions", "Known Limits", "Static GitHub Pages", "Copy Program Link", "ebase leaderboard"],
     )
     audit.require_text(
         ROOT / "docs" / "epu_instruction_set.md",
@@ -186,7 +176,7 @@ def check_public_docs(audit: Audit) -> None:
     )
     audit.require_text(
         ROOT / "docs" / "playground.md",
-        ["Python 3.11", "/api/challenge", "Copy JSON", "Copy Program Link", "Run Official Suite", "static fallback", "GitHub Pages版はデモ用", "公式チャレンジ提出用JSON", "static_playground_smoke.cjs"],
+        ["Python 3.11", "/api/challenge", "Copy JSON", "Copy Program Link", "Run Official Suite", "static fallback", "GitHub Pages版はデモ用", "公式チャレンジ提出用JSON"],
     )
     audit.require_text(
         ROOT / "examples" / "compiler_starter" / "README.md",

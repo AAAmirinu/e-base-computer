@@ -42,5 +42,3 @@ GitHubでは、次のテンプレートを使えます。
 - `Compiler challenge entry`: スコアや生成アセンブリを共有する。
 - `Good first experiment`: 小さなサンプル、可視化、E-base実験を提案する。
 - `Bug report`: 再現できる不具合を報告する。
-
-最初の開催告知は [docs/challenge_kickoff.md](docs/challenge_kickoff.md) を土台にできます。

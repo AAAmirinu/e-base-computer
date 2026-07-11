@@ -6,8 +6,8 @@
 前提: Python 3.11以上を用意し、GitHubからcloneしたcheckoutのルートで実行します。
 
 ```powershell
-git clone https://github.com/OWNER/REPO.git
-cd REPO
+git clone https://github.com/AAAmirinu/e-base-computer.git
+cd e-base-computer
 python -m pip install -e .
 ebase-playground
 ```
@@ -66,12 +66,6 @@ Playgroundの `Run Official Suite` は、CLIの次のコマンドと同じ公式
 
 ```powershell
 ebase challenge --json
-```
-
-静的runtimeだけの検証は次で実行できます。GitHub Pages workflowでもdeploy前に同じ確認を行います。
-
-```powershell
-node .\scripts\static_playground_smoke.cjs
 ```
 
 結果欄の `Copy JSON` で、IssueやDiscussionに貼る提出用JSONをコピーできます。
