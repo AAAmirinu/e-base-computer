@@ -1,12 +1,10 @@
-# 仮想E進コンピューター
+# E-base Computer Emulator
 
-`e-base-computer` は、`0 <= d < e` の連続値を保持できる理想素子が存在する、
-というSF的な仮定にもとづく架空計算機のエミュレーター、C風コンパイラ、
-ローカルWeb Playgroundです。
+`e-base-computer` は、E進ワード、熱、量子化、観測、リフレッシュを扱う
+実験的なエミュレーター、C風コンパイラ、ローカルWeb Playgroundです。
 
-目的は、実在のCPUを置き換えることではありません。E進ワード、Eメモリ、
-温度、観測、量子化、リフレッシュを持つ「触って遊べる架空コンピュータ」を
-公開し、他の人がコンパイラ最適化や可視化で参加できる土台を作ることです。
+目的は、決定的に再現できるE進計算モデルを公開し、他の人がコンパイラ最適化
+や可視化で参加できる土台を作ることです。
 
 ![E-base Playgroundで公式チャレンジを実行している画面](docs/assets/playground-challenge.png)
 
@@ -231,7 +229,7 @@ GitHub Actionsでも同じテストとデモを実行します。
 - `examples/` - デモとチャレンジ課題
 - `examples/compiler_starter/` - 外部コンパイラ参加用のbaseline `.epu` 生成スターター
 - `tests/` - 回帰テスト
-- `docs/` - 仕様、世界設定、チャレンジ説明、公開チェックリスト
+- `docs/` - 技術仕様、チャレンジ説明、公開チェックリスト
 
 ## 公開前チェック
 
@@ -240,6 +238,13 @@ GitHub公開の手順は [docs/publish_to_github.md](docs/publish_to_github.md) 
 貢献の入口は [CONTRIBUTING.md](CONTRIBUTING.md) と `.github/ISSUE_TEMPLATE/` を参照してください。
 初回公開向けの説明文は [docs/release_notes_v0_1.md](docs/release_notes_v0_1.md)、
 変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。
+
+## License and Scope
+
+コードと技術ドキュメントは [Apache-2.0](LICENSE) です。派生配布では
+[NOTICE](NOTICE) の帰属表示を保持してください。プロジェクト名とロゴの扱いは
+[TRADEMARKS.md](TRADEMARKS.md)、公開範囲は [TECHNICAL_SCOPE.md](TECHNICAL_SCOPE.md)
+を参照してください。E進ワードの最小技術モデルは [docs/e_word_model.md](docs/e_word_model.md) にあります。
 
 公開直前の軽量監査:
 

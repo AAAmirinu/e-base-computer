@@ -73,6 +73,9 @@ def check_required_files(audit: Audit) -> None:
         "README.md",
         "CHANGELOG.md",
         "LICENSE",
+        "NOTICE",
+        "TRADEMARKS.md",
+        "TECHNICAL_SCOPE.md",
         "CONTRIBUTING.md",
         "SECURITY.md",
         "pyproject.toml",
@@ -88,7 +91,9 @@ def check_required_files(audit: Audit) -> None:
         ".github/ISSUE_TEMPLATE/compiler_challenge.md",
         ".github/ISSUE_TEMPLATE/good_first_experiment.md",
         "docs/compiler_challenge.md",
+        "docs/e_word_model.md",
         "docs/epu_instruction_set.md",
+        "docs/epu_spec.md",
         "docs/playground.md",
         "docs/publish_to_github.md",
         "docs/challenge_kickoff.md",
@@ -109,6 +114,19 @@ def check_required_files(audit: Audit) -> None:
         audit.check(f"{name} exists", path.exists())
         if path.exists() and path.is_file():
             audit.check(f"{name} is not empty", path.stat().st_size > 0)
+
+    excluded_worldbuilding = [
+        "docs/architecture.md",
+        "docs/development_history.md",
+        "docs/emulator_prototype.md",
+        "docs/long_term_storage.md",
+        "docs/system_architecture.md",
+        "docs/theory.md",
+        "docs/thermal_resource_management.md",
+        "docs/visualization_strategy.md",
+    ]
+    for name in excluded_worldbuilding:
+        audit.check(f"{name} is excluded from the public repository", not (ROOT / name).exists())
 
 
 def check_public_docs(audit: Audit) -> None:
@@ -133,8 +151,15 @@ def check_public_docs(audit: Audit) -> None:
             "Issues` -> `New issue` -> `Compiler challenge entry",
             "docs/challenge_kickoff.md",
             "docs/challenge_operations.md",
+            "TECHNICAL_SCOPE.md",
+            "TRADEMARKS.md",
         ],
     )
+    audit.require_text(ROOT / "LICENSE", ["Apache License", "Version 2.0"])
+    audit.require_text(ROOT / "NOTICE", ["E-base Computer", "AAAmirinu"])
+    audit.require_text(ROOT / "TRADEMARKS.md", ["permission to use these names", "distinct project name"])
+    audit.require_text(ROOT / "TECHNICAL_SCOPE.md", ["technical E-base Computer implementation", "not licensed by this repository"])
+    audit.require_text(ROOT / "docs" / "e_word_model.md", ["value = sign * sum", "authoritative"])
     audit.require_text(
         ROOT / "docs" / "compiler_challenge.md",
         ["total_score=373.1", "参加者ワークフロー", "--assembly-dir", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "変更してはいけないもの", "タイブレーク", "ebase leaderboard", "--best-per-participant", "Issues` -> `New issue` -> `Compiler challenge entry"],
@@ -186,9 +211,9 @@ def check_packaging(audit: Audit) -> None:
     )
     audit.require_text(
         ROOT / "MANIFEST.in",
-        ["recursive-include docs/assets *.png", "recursive-include examples *.py *.cbase *.epu *.json *.md", "recursive-include src/e_base_computer_web/playground"],
+        ["LICENSE NOTICE TRADEMARKS.md TECHNICAL_SCOPE.md", "recursive-include docs/assets *.png", "recursive-include examples *.py *.cbase *.epu *.json *.md", "recursive-include src/e_base_computer_web/playground"],
     )
-    audit.require_text(ROOT / ".gitignore", ["generated-assembly/"])
+    audit.require_text(ROOT / ".gitignore", ["generated-assembly/", "private_materials/"])
     audit.require_text(
         ROOT / "Dockerfile",
         ['CMD ["ebase-playground", "--host", "0.0.0.0", "--port", "8765"]'],

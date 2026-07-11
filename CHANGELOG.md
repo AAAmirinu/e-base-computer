@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+- Relicensed the technical implementation and documentation under Apache-2.0.
+- Added `NOTICE`, `TRADEMARKS.md`, and `TECHNICAL_SCOPE.md` for attribution,
+  project-name use, and the public technical boundary.
+- Removed worldbuilding and narrative material from the public documentation
+  set and excluded local private materials from release bundles.
+
 ## 0.1.0 - Initial Public Preview
 
 ### Added

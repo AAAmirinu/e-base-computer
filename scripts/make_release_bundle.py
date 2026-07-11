@@ -28,6 +28,7 @@ EXCLUDED_DIRS = {
     "build",
     "dist",
     "generated-assembly",
+    "private_materials",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 EXCLUDED_NAMES = {".DS_Store", "Thumbs.db"}

@@ -31,14 +31,13 @@ docker run --rm -p 8765:8765 e-base-computer
 
 - Repository name: `e-base-computer`
 - Visibility: Public（公開準備中はPrivateで進め、公開時に手動で切り替えてよい）
-- Description: `A fictional E-base computer emulator, C-like compiler, playground, and compiler challenge kit.`
+- Description: `An experimental E-base computer emulator, C-like compiler, playground, and compiler challenge kit.`
 - Topics:
   - `emulator`
   - `compiler`
   - `virtual-machine`
   - `playground`
   - `education`
-  - `fictional-computer`
 - License: repository内の `LICENSE` を使う。
 - Issues: enabled
 - Discussions: enabled

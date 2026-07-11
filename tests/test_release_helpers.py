@@ -94,6 +94,8 @@ class MakeReleaseBundleTests(unittest.TestCase):
             root.joinpath("dist", "old.zip").write_text("old", encoding="utf-8")
             root.joinpath("generated-assembly").mkdir()
             root.joinpath("generated-assembly", "factorial.epu").write_text("generated", encoding="utf-8")
+            root.joinpath("private_materials", "worldbuilding").mkdir(parents=True)
+            root.joinpath("private_materials", "worldbuilding", "history.md").write_text("private", encoding="utf-8")
             root.joinpath("src").mkdir()
             root.joinpath("src", "module.pyc").write_bytes(b"cache")
 
@@ -104,12 +106,14 @@ class MakeReleaseBundleTests(unittest.TestCase):
             self.assertNotIn(".git/config", names)
             self.assertNotIn("dist/old.zip", names)
             self.assertNotIn("generated-assembly/factorial.epu", names)
+            self.assertNotIn("private_materials/worldbuilding/history.md", names)
             self.assertNotIn("src/module.pyc", names)
 
     def test_should_exclude_internal_agent_artifacts(self) -> None:
         self.assertTrue(should_exclude(Path(".ai/audits/packet.json")))
         self.assertTrue(should_exclude(Path(".ai/fable-auditor/project-policy.json")))
         self.assertTrue(should_exclude(Path(".agents/config.json")))
+        self.assertTrue(should_exclude(Path("private_materials/worldbuilding/history.md")))
 
     def test_create_bundle_uses_clean_top_level_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
