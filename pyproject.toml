@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "e-base-computer"
+version = "0.1.0"
+description = "A fictional E-base computer emulator, C-like compiler, and playground."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "E-base Computer Contributors" }
+]
+keywords = ["emulator", "compiler", "fictional-computer", "e-base", "playground"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Education",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Compilers",
+  "Topic :: System :: Emulators",
+]
+
+[project.urls]
+Homepage = "https://github.com/AAAmirinu/e-base-computer"
+Repository = "https://github.com/AAAmirinu/e-base-computer"
+Issues = "https://github.com/AAAmirinu/e-base-computer/issues"
+Discussions = "https://github.com/AAAmirinu/e-base-computer/discussions"
+Playground = "https://AAAmirinu.github.io/e-base-computer/"
+
+[project.scripts]
+ebase = "epu_cli:main"
+ebase-playground = "web_playground:main"
+
+[tool.setuptools]
+py-modules = [
+  "cstyle_compiler",
+  "ecomputer",
+  "emulator",
+  "epu",
+  "epu_challenge",
+  "epu_cli",
+  "epu_experiments",
+  "epu_leaderboard",
+  "epu_scoring",
+  "epu_spec",
+  "web_playground",
+]
+packages = ["e_base_computer_web"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+e_base_computer_web = ["playground/*"]

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>E-base Playground</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>E-base Playground</h1>
+      <p>E進ワード、熱、観測、量子化をステップごとに見るローカル実験場</p>
+    </div>
+    <div class="controls">
+      <select id="sampleSelect" aria-label="sample program"></select>
+      <select id="languageSelect" aria-label="language">
+        <option value="c">C-like</option>
+        <option value="asm">EPU asm</option>
+      </select>
+      <label>precision <input id="precisionInput" type="number" min="0" max="12" value="8"></label>
+      <button id="runButton" type="button">Run</button>
+      <button id="copyLinkButton" type="button">Copy Program Link</button>
+      <button id="challengeButton" type="button">Run Official Suite</button>
+      <button id="copyChallengeButton" type="button" disabled>Copy JSON</button>
+      <span id="shareStatus" class="shareStatus">not shared</span>
+      <span id="engineStatus" class="engineStatus">server</span>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="editorPane" aria-label="source editor">
+      <div id="sampleDescription" class="sampleDescription"></div>
+      <textarea id="sourceEditor" spellcheck="false"></textarea>
+    </section>
+
+    <section class="resultPane" aria-label="execution result">
+      <div class="metrics" id="metrics"></div>
+      <section class="challengePanel">
+        <div class="sectionHead">
+          <h2>Official Challenge</h2>
+          <span id="challengeStatus">not run</span>
+        </div>
+        <pre id="challengeView"></pre>
+      </section>
+      <div class="split">
+        <section>
+          <h2>Output</h2>
+          <pre id="outputView"></pre>
+        </section>
+        <section>
+          <h2>Assembly</h2>
+          <pre id="assemblyView"></pre>
+        </section>
+      </div>
+      <section>
+        <h2>Thermal Timeline</h2>
+        <canvas id="timelineCanvas" width="900" height="220"></canvas>
+      </section>
+      <div class="split">
+        <section>
+          <h2>E Digit Ladder</h2>
+          <div id="registerLadder" class="ladder"></div>
+        </section>
+        <section>
+          <h2>E Field Map</h2>
+          <div id="fieldMap" class="fieldMap"></div>
+        </section>
+      </div>
+      <section>
+        <h2>Events</h2>
+        <div id="eventList" class="eventList"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="static-runtime.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

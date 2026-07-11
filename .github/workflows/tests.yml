@@ -1,0 +1,106 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Audit publication files
+        run: python scripts/publication_audit.py
+      - name: Smoke static playground
+        run: node scripts/static_playground_smoke.cjs
+      - name: Run tests
+        run: python -m unittest discover -s tests
+      - name: Run demos
+        run: |
+          python examples/demo.py
+          python examples/epu_demo.py
+          python examples/cstyle_demo.py
+
+  wheel-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build wheel
+        run: python -m pip wheel . --no-deps -w dist
+      - name: Install wheel in fresh venv
+        run: |
+          python -m venv .venv-wheel
+          .venv-wheel/bin/python -m pip install dist/*.whl
+      - name: Smoke CLI
+        run: |
+          .venv-wheel/bin/ebase demo --run
+          .venv-wheel/bin/ebase samples
+          .venv-wheel/bin/ebase samples thermal-degrade --run --json
+          .venv-wheel/bin/ebase challenge --json
+          .venv-wheel/bin/ebase challenge thermal-degrade --json
+          mkdir -p generated-assembly
+          cat > generated-assembly/e-ladder.epu <<'EOF'
+          ECONST ER0, 12.5
+          ECONST ER1, 4.25
+          EMUL ER2, ER0, ER1
+          ENORM ER2
+          ESHIFT ER3, ER2, 1
+          EOBS OUT0, ER3 ; precision=8
+          EOF
+          .venv-wheel/bin/ebase challenge e-ladder --assembly-dir generated-assembly --json
+          .venv-wheel/bin/ebase run examples/challenges/factorial.cbase --json
+          .venv-wheel/bin/ebase run examples/challenges/thermal_quantization.epu --language asm --json
+      - name: Smoke playground HTTP
+        run: |
+          .venv-wheel/bin/ebase-playground --port 8765 &
+          SERVER_PID=$!
+          sleep 2
+          curl --fail http://127.0.0.1:8765/
+          curl --fail http://127.0.0.1:8765/app.js
+          curl --fail http://127.0.0.1:8765/styles.css
+          curl --fail http://127.0.0.1:8765/api/samples
+          curl --fail -X POST http://127.0.0.1:8765/api/run \
+            -H 'Content-Type: application/json' \
+            -d '{"source":"let x = 5; print(x);","language":"c","precision":8,"maxSteps":1000}'
+          kill $SERVER_PID
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build playground image
+        run: docker build -t e-base-computer .
+      - name: Smoke playground container
+        run: |
+          docker run -d --rm -p 8765:8765 --name ebase-playground e-base-computer
+          sleep 3
+          curl --fail http://127.0.0.1:8765/
+          curl --fail http://127.0.0.1:8765/api/samples
+          curl --fail http://127.0.0.1:8765/api/challenge \
+            | python -c "import json,sys; data=json.load(sys.stdin); assert data['ok']; assert data['correct']; assert data['total_score'] == 373.1"
+          docker stop ebase-playground
+
+  release-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run release smoke
+        run: python scripts/release_smoke.py

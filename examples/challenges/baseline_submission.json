@@ -1,0 +1,57 @@
+{
+  "participant": "baseline",
+  "correct": true,
+  "total_score": 373.1,
+  "results": [
+    {
+      "slug": "factorial",
+      "correct": true,
+      "steps": 58,
+      "assembly_lines": 21,
+      "score": {
+        "score": 73.3,
+        "degraded_events": 0
+      }
+    },
+    {
+      "slug": "e-ladder",
+      "correct": true,
+      "steps": 6,
+      "assembly_lines": 6,
+      "score": {
+        "score": 20.7,
+        "degraded_events": 0
+      }
+    },
+    {
+      "slug": "cold-memory",
+      "correct": true,
+      "steps": 6,
+      "assembly_lines": 6,
+      "score": {
+        "score": 20.2,
+        "degraded_events": 0
+      }
+    },
+    {
+      "slug": "thermal-degrade",
+      "correct": true,
+      "steps": 98,
+      "assembly_lines": 12,
+      "score": {
+        "score": 233.5,
+        "degraded_events": 2
+      }
+    },
+    {
+      "slug": "branching",
+      "correct": true,
+      "steps": 12,
+      "assembly_lines": 18,
+      "score": {
+        "score": 25.4,
+        "degraded_events": 0
+      }
+    }
+  ]
+}

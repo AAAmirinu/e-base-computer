@@ -1,0 +1,7 @@
+include README.md CHANGELOG.md LICENSE CONTRIBUTING.md SECURITY.md
+recursive-include docs *.md
+recursive-include docs/assets *.png
+recursive-include examples *.py *.cbase *.epu *.json *.md
+recursive-include scripts *.py
+recursive-include web/playground *.html *.css *.js
+recursive-include src/e_base_computer_web/playground *.html *.css *.js

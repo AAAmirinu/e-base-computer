@@ -1,0 +1,7 @@
+let signal = -3;
+
+if (signal >= 0) {
+    print(1);
+} else {
+    print(0);
+}
