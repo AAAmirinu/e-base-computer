@@ -8,6 +8,7 @@ __pycache__/
 dist/
 build/
 .ai/audits/
+.ai/fable-auditor/
 generated-assembly/
 private_materials/
 .env

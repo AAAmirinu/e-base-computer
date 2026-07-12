@@ -12,6 +12,7 @@ Paste the official command you ran:
 ```text
 ebase challenge --json
 ebase challenge --assembly-dir .\generated-assembly --json
+ebase challenge --suite numerical --assembly-dir .\generated-numerical --json
 ```
 
 ## Output correctness
@@ -30,7 +31,7 @@ to each JSON so maintainers can use `--best-per-participant`.
 Checklist:
 
 - [ ] `correct` is `true`
-- [ ] All five official challenge slugs are present
+- [ ] All slugs for the selected suite are present
 - [ ] I did not modify `epu_scoring.py` or `epu_challenge.py`
 - [ ] I did not special-case the official samples by returning only the expected outputs
 

@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
-from epu_challenge import OFFICIAL_CHALLENGE_SLUGS
+from epu_challenge import NUMERICAL_CHALLENGE_SLUGS, OFFICIAL_CHALLENGE_SLUGS
 
 
 @dataclass(frozen=True)
@@ -24,10 +24,24 @@ class LeaderboardEntry:
     degraded_events: int
     slugs: List[str]
     issues: List[str]
+    suite: str = "official"
+    max_relative_error: float = 0.0
+    mean_accuracy_digits: float = 0.0
 
-    def ranking_key(self) -> Tuple[int, float, int, int, str]:
+    def ranking_key(self) -> Tuple[object, ...]:
         bucket = 0 if self.valid and self.correct else 1 if self.valid else 2
+        if self.suite == "numerical":
+            return (
+                self.suite,
+                bucket,
+                self.max_relative_error,
+                self.total_steps,
+                self.total_score,
+                self.total_assembly_lines,
+                self.participant.lower(),
+            )
         return (
+            self.suite,
             bucket,
             self.total_score,
             self.total_steps,
@@ -127,6 +141,11 @@ def submission_from_payload(
         submission_payload = nested
 
     participant = wrapper_participant or fallback_participant
+    suite_value = submission_payload.get("suite", "official")
+    suite = suite_value if isinstance(suite_value, str) else "official"
+    if suite not in {"official", "numerical"}:
+        issues.append(f"unknown suite: {suite!r}")
+        suite = "official"
     results = submission_payload.get("results")
     if not isinstance(results, list):
         return invalid_entry(participant, source, "payload must include a results array")
@@ -144,7 +163,9 @@ def submission_from_payload(
             issues.append(f"duplicate slug: {slug}")
         by_slug[slug] = item
 
-    official = list(OFFICIAL_CHALLENGE_SLUGS)
+    official = list(
+        NUMERICAL_CHALLENGE_SLUGS if suite == "numerical" else OFFICIAL_CHALLENGE_SLUGS
+    )
     slugs = list(by_slug)
     missing = [slug for slug in official if slug not in by_slug]
     extra = [slug for slug in slugs if slug not in official]
@@ -157,6 +178,8 @@ def submission_from_payload(
     total_steps = 0
     total_assembly_lines = 0
     degraded_events = 0
+    relative_errors: List[float] = []
+    accuracy_digits: List[float] = []
     all_correct = True
 
     for slug in official:
@@ -165,10 +188,14 @@ def submission_from_payload(
             all_correct = False
             continue
         all_correct = all_correct and result.get("correct") is True
-        total_score += read_float(result, "score.score", issues, slug)
+        score_path = "numerical_score" if suite == "numerical" else "score.score"
+        total_score += read_float(result, score_path, issues, slug)
         total_steps += int(read_float(result, "steps", issues, slug))
         total_assembly_lines += int(read_float(result, "assembly_lines", issues, slug))
         degraded_events += int(read_float(result, "score.degraded_events", issues, slug, default=0.0))
+        if suite == "numerical":
+            relative_errors.append(read_float(result, "relative_error", issues, slug))
+            accuracy_digits.append(read_float(result, "accuracy_digits", issues, slug))
 
     claimed_correct = submission_payload.get("correct")
     if claimed_correct is not None and claimed_correct is not all_correct:
@@ -194,6 +221,11 @@ def submission_from_payload(
         degraded_events=degraded_events,
         slugs=slugs,
         issues=issues,
+        suite=suite,
+        max_relative_error=max(relative_errors, default=0.0),
+        mean_accuracy_digits=round(
+            sum(accuracy_digits) / max(1, len(accuracy_digits)), 3
+        ),
     )
 
 
@@ -201,6 +233,7 @@ def leaderboard_payload(entries: Sequence[LeaderboardEntry]) -> Dict[str, object
     ranked = sorted(entries, key=lambda entry: entry.ranking_key())
     return {
         "official_slugs": list(OFFICIAL_CHALLENGE_SLUGS),
+        "numerical_slugs": list(NUMERICAL_CHALLENGE_SLUGS),
         "entries": [entry.to_dict() for entry in ranked],
     }
 
@@ -208,8 +241,8 @@ def leaderboard_payload(entries: Sequence[LeaderboardEntry]) -> Dict[str, object
 def format_leaderboard_markdown(entries: Sequence[LeaderboardEntry]) -> str:
     ranked = sorted(entries, key=lambda entry: entry.ranking_key())
     lines = [
-        "| Rank | Participant | Valid | Correct | Total score | Steps | Assembly lines | Degraded | Source | Issues |",
-        "| ---: | --- | :---: | :---: | ---: | ---: | ---: | ---: | --- | --- |",
+        "| Rank | Suite | Participant | Valid | Correct | Max rel error | Digits | Total score | Steps | Assembly lines | Degraded | Source | Issues |",
+        "| ---: | --- | --- | :---: | :---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ]
     for index, entry in enumerate(ranked, start=1):
         issues = "; ".join(entry.issues) if entry.issues else ""
@@ -218,9 +251,12 @@ def format_leaderboard_markdown(entries: Sequence[LeaderboardEntry]) -> str:
             + " | ".join(
                 [
                     str(index),
+                    entry.suite,
                     escape_cell(entry.participant),
                     yes_no(entry.valid),
                     yes_no(entry.correct),
+                    f"{entry.max_relative_error:.3g}",
+                    f"{entry.mean_accuracy_digits:g}",
                     f"{entry.total_score:g}",
                     str(entry.total_steps),
                     str(entry.total_assembly_lines),

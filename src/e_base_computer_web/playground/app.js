@@ -8,6 +8,7 @@ const precisionInput = document.getElementById("precisionInput");
 const runButton = document.getElementById("runButton");
 const copyLinkButton = document.getElementById("copyLinkButton");
 const challengeButton = document.getElementById("challengeButton");
+const challengeSuiteSelect = document.getElementById("challengeSuiteSelect");
 const copyChallengeButton = document.getElementById("copyChallengeButton");
 const metrics = document.getElementById("metrics");
 const outputView = document.getElementById("outputView");
@@ -20,8 +21,14 @@ const eventList = document.getElementById("eventList");
 const registerLadder = document.getElementById("registerLadder");
 const fieldMap = document.getElementById("fieldMap");
 const canvas = document.getElementById("timelineCanvas");
+const timelineScrubber = document.getElementById("timelineScrubber");
+const timelineStatus = document.getElementById("timelineStatus");
+const stepDetail = document.getElementById("stepDetail");
+const operationProfile = document.getElementById("operationProfile");
 const sampleDescription = document.getElementById("sampleDescription");
 let lastChallengePayload = null;
+let lastTimeline = [];
+let selectedTimelineIndex = -1;
 
 sampleSelect.addEventListener("change", () => loadSample(sampleSelect.value));
 editor.addEventListener("input", () => {
@@ -32,6 +39,8 @@ runButton.addEventListener("click", runProgram);
 copyLinkButton.addEventListener("click", copyShareLink);
 challengeButton.addEventListener("click", runChallengeSuite);
 copyChallengeButton.addEventListener("click", copyChallengeJson);
+timelineScrubber.addEventListener("input", () => selectTimelineIndex(Number(timelineScrubber.value)));
+canvas.addEventListener("click", selectTimelineFromCanvas);
 window.addEventListener("hashchange", () => {
   if (loadSharedState()) {
     runProgram();
@@ -165,9 +174,12 @@ function runStaticProgram(request) {
 async function runChallengeSuite() {
   challengeButton.disabled = true;
   challengeStatus.textContent = "running";
-  challengeView.className = "";
+  challengeView.className = "challengeView";
   try {
-    const payload = engineMode === "static" ? window.EBaseStaticRuntime.runChallengeSuite() : await fetchChallengeSuite();
+    const suite = challengeSuiteSelect.value;
+    const payload = engineMode === "static"
+      ? window.EBaseStaticRuntime.runChallengeSuite(suite)
+      : await fetchChallengeSuite(suite);
     if (!payload.ok) {
       throw new Error(payload.error || "challenge failed");
     }
@@ -177,14 +189,14 @@ async function runChallengeSuite() {
     try {
       engineMode = "static";
       updateEngineStatus();
-      const payload = window.EBaseStaticRuntime.runChallengeSuite();
+      const payload = window.EBaseStaticRuntime.runChallengeSuite(challengeSuiteSelect.value);
       lastChallengePayload = payload;
       renderChallenge(payload);
     } catch (fallbackError) {
       lastChallengePayload = null;
       copyChallengeButton.disabled = true;
       challengeStatus.textContent = "error";
-      challengeView.className = "error";
+      challengeView.className = "challengeView error";
       challengeView.textContent = `${error}\n\nStatic fallback also failed:\n${fallbackError}`;
     }
   } finally {
@@ -192,8 +204,8 @@ async function runChallengeSuite() {
   }
 }
 
-async function fetchChallengeSuite() {
-  const response = await fetch("/api/challenge");
+async function fetchChallengeSuite(suite) {
+  const response = await fetch(`/api/challenge?suite=${encodeURIComponent(suite)}`);
   const payload = await response.json();
   if (payload.ok) {
     engineMode = "server";
@@ -261,36 +273,56 @@ function renderPayload(payload) {
   addMetric("score", score.score);
   addMetric("steps", score.steps);
   addMetric("max temp", score.max_temperature);
+  addMetric("observations", score.observations);
+  addMetric("degraded", score.degraded_events);
+  addMetric("refreshes", score.refresh_events);
+  addMetric("memory cells", score.memory_cells);
   outputView.className = "";
   outputView.textContent = JSON.stringify(payload.output, null, 2);
   assemblyView.textContent = payload.assembly;
-  renderEvents(payload.timeline);
-  renderRegisters(payload.snapshot);
-  renderFields(payload.snapshot);
-  drawTimeline(payload.timeline);
+  lastTimeline = Array.isArray(payload.timeline) ? payload.timeline : [];
+  renderEvents(lastTimeline);
+  renderOperationProfile(lastTimeline);
+  timelineScrubber.max = String(Math.max(0, lastTimeline.length - 1));
+  timelineScrubber.disabled = !lastTimeline.length;
+  selectTimelineIndex(lastTimeline.length - 1, payload.snapshot);
 }
 
 function renderChallenge(payload) {
   const results = Array.isArray(payload.results) ? payload.results : [];
   const staticDemo = Boolean(payload.static_fallback);
+  const suite = payload.suite || challengeSuiteSelect.value;
   challengeStatus.textContent = staticDemo
-    ? `demo only correct=${payload.correct} score=${payload.total_score}`
-    : `official correct=${payload.correct} score=${payload.total_score}`;
+    ? `demo ${suite} correct=${payload.correct} score=${payload.total_score}`
+    : `${suite} correct=${payload.correct} score=${payload.total_score}`;
   copyChallengeButton.disabled = staticDemo;
-  challengeView.textContent = JSON.stringify({
-    official_submission: !staticDemo,
-    demo_only: staticDemo,
-    correct: payload.correct,
-    total_score: payload.total_score,
-    results: results.map((result) => ({
-      slug: result.slug,
-      correct: result.correct,
-      score: result.score.score,
-      steps: result.steps,
-      assembly_lines: result.assembly_lines,
-      degraded_events: result.score.degraded_events
-    }))
-  }, null, 2);
+  challengeView.innerHTML = "";
+  const table = document.createElement("table");
+  table.className = "challengeTable";
+  const numerical = suite === "numerical";
+  const headings = numerical
+    ? ["kernel", "ok", "digits", "error", "steps", "perf", "total"]
+    : ["challenge", "ok", "steps", "temp", "degraded", "score"];
+  const head = document.createElement("tr");
+  headings.forEach((label) => {
+    const cell = document.createElement("th");
+    cell.textContent = label;
+    head.appendChild(cell);
+  });
+  table.appendChild(head);
+  results.forEach((result) => {
+    const values = numerical
+      ? [result.slug, result.correct, result.accuracy_digits, result.relative_error, result.steps, result.score.score, result.numerical_score]
+      : [result.slug, result.correct, result.steps, result.score.max_temperature, result.score.degraded_events, result.score.score];
+    const row = document.createElement("tr");
+    values.forEach((value) => {
+      const cell = document.createElement("td");
+      cell.textContent = String(value);
+      row.appendChild(cell);
+    });
+    table.appendChild(row);
+  });
+  challengeView.appendChild(table);
 }
 
 function updateEngineStatus() {
@@ -313,17 +345,63 @@ function showError(message) {
   eventList.innerHTML = "";
   registerLadder.innerHTML = "";
   fieldMap.innerHTML = "";
+  operationProfile.innerHTML = "";
+  stepDetail.textContent = "";
+  lastTimeline = [];
   drawTimeline([]);
 }
 
 function renderEvents(timeline) {
   eventList.innerHTML = "";
-  for (const event of timeline) {
-    const node = document.createElement("div");
+  timeline.forEach((event, index) => {
+    const node = document.createElement("button");
+    node.type = "button";
     node.className = "event";
     node.innerHTML = `<span>#${event.tick}</span><strong>${event.op}</strong><span>${event.flags.join(", ")}</span>`;
+    node.addEventListener("click", () => selectTimelineIndex(index));
     eventList.appendChild(node);
+  });
+}
+
+function selectTimelineIndex(index, fallbackSnapshot) {
+  if (!lastTimeline.length) {
+    selectedTimelineIndex = -1;
+    timelineStatus.textContent = "no trace";
+    renderRegisters(fallbackSnapshot || {er: {}});
+    renderFields(fallbackSnapshot || {fields: {}});
+    drawTimeline([]);
+    return;
   }
+  selectedTimelineIndex = Math.max(0, Math.min(lastTimeline.length - 1, index));
+  timelineScrubber.value = String(selectedTimelineIndex);
+  const event = lastTimeline[selectedTimelineIndex];
+  const snapshot = event.after || fallbackSnapshot || {};
+  timelineStatus.textContent = `tick ${event.tick} / ${lastTimeline.length} · ${event.op}`;
+  stepDetail.textContent = formatEventDetail(event, snapshot);
+  renderRegisters(snapshot);
+  renderFields(snapshot);
+  drawTimeline(lastTimeline, selectedTimelineIndex);
+  Array.from(eventList.children).forEach((node, nodeIndex) => {
+    node.classList.toggle("selected", nodeIndex === selectedTimelineIndex);
+  });
+}
+
+function formatEventDetail(event, snapshot) {
+  const lines = [`tick=${event.tick} op=${event.op}`];
+  if (event.source) lines.push(`source: ${event.source}`);
+  if (Array.isArray(event.args) && event.args.length) lines.push(`args: ${event.args.join(", ")}`);
+  if (Array.isArray(event.targets) && event.targets.length) lines.push(`targets: ${event.targets.join(", ")}`);
+  if (Array.isArray(event.flags) && event.flags.length) lines.push(`flags: ${event.flags.join(", ")}`);
+  const precision = snapshotPrecision(snapshot);
+  lines.push(`max_temperature=${maxTemp({after: snapshot}).toFixed(4)} q_max=${precision.qMax} current_partition=${precision.current}`);
+  return lines.join("\n");
+}
+
+function selectTimelineFromCanvas(event) {
+  if (!lastTimeline.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const ratio = (event.clientX - rect.left) / Math.max(1, rect.width);
+  selectTimelineIndex(Math.round(ratio * (lastTimeline.length - 1)));
 }
 
 function renderRegisters(snapshot) {
@@ -380,7 +458,7 @@ function renderFields(snapshot) {
   }
 }
 
-function drawTimeline(timeline) {
+function drawTimeline(timeline, selectedIndex = -1) {
   const context = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
@@ -399,6 +477,7 @@ function drawTimeline(timeline) {
     return;
   }
   const temps = timeline.map(maxTemp);
+  const precisions = timeline.map((event) => snapshotPrecision(event.after || {}).qMax);
   const max = Math.max(0.1, ...temps);
   context.strokeStyle = "#c93324";
   context.lineWidth = 3;
@@ -413,9 +492,76 @@ function drawTimeline(timeline) {
     }
   });
   context.stroke();
+  context.strokeStyle = "#2367b1";
+  context.lineWidth = 2;
+  context.beginPath();
+  precisions.forEach((partition, index) => {
+    const x = timelineX(index, timeline.length, width);
+    const y = height - 18 - (partition / 243) * (height - 42);
+    if (index === 0) context.moveTo(x, y);
+    else context.lineTo(x, y);
+  });
+  context.stroke();
+  if (selectedIndex >= 0) {
+    const x = timelineX(selectedIndex, timeline.length, width);
+    context.strokeStyle = "#0e7c66";
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(x, 28);
+    context.lineTo(x, height - 16);
+    context.stroke();
+  }
   context.fillStyle = "#15201c";
   context.font = "13px Segoe UI";
-  context.fillText(`max temperature ${max.toFixed(3)}`, 14, 20);
+  context.fillText(`temperature ${max.toFixed(3)}`, 14, 20);
+  context.fillStyle = "#2367b1";
+  context.fillText("q_max 3–243", 180, 20);
+}
+
+function timelineX(index, count, width) {
+  return count === 1 ? 14 : (index / (count - 1)) * (width - 28) + 14;
+}
+
+function snapshotPrecision(snapshot) {
+  const values = [];
+  for (const value of Object.values(snapshot.er || {})) {
+    values.push({qMax: Number(value.q_max || 243), current: Number(value.current_partition || 243)});
+  }
+  for (const field of Object.values(snapshot.fields || {})) {
+    values.push({qMax: Number(field.q_max || 243), current: Number(field.current_partition || 243)});
+    for (const cell of field.cells || []) {
+      values.push({qMax: Number(cell.q_max || 243), current: Number(cell.current_partition || 243)});
+    }
+  }
+  if (!values.length) return {qMax: 243, current: 243};
+  return {
+    qMax: Math.min(...values.map((value) => value.qMax)),
+    current: Math.min(...values.map((value) => value.current))
+  };
+}
+
+function renderOperationProfile(timeline) {
+  operationProfile.innerHTML = "";
+  const counts = new Map();
+  timeline.forEach((event) => counts.set(event.op, (counts.get(event.op) || 0) + 1));
+  const rows = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  const maxCount = Math.max(1, ...rows.map(([, count]) => count));
+  rows.forEach(([op, count]) => {
+    const row = document.createElement("div");
+    row.className = "profileRow";
+    const label = document.createElement("span");
+    label.textContent = op;
+    const track = document.createElement("div");
+    track.className = "profileBarTrack";
+    const bar = document.createElement("div");
+    bar.className = "profileBar";
+    bar.style.width = `${(count / maxCount) * 100}%`;
+    track.appendChild(bar);
+    const value = document.createElement("strong");
+    value.textContent = String(count);
+    row.append(label, track, value);
+    operationProfile.appendChild(row);
+  });
 }
 
 function maxTemp(event) {

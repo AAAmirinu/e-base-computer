@@ -63,13 +63,29 @@ def main() -> int:
         scripts = python.parent
         ebase = scripts / executable_name("ebase")
         playground = scripts / executable_name("ebase-playground")
-        run([str(python), "-m", "pip", "install", str(wheel)])
+        run(
+            [
+                str(python),
+                "-m",
+                "pip",
+                "install",
+                "--force-reinstall",
+                "--no-deps",
+                str(wheel),
+            ]
+        )
         assert playground.exists()
         run([str(ebase), "samples"], cwd=installed_cwd)
         run([str(ebase), "samples", "thermal-degrade", "--run", "--json"], cwd=installed_cwd)
         challenge = run_json([str(ebase), "challenge", "--json"], cwd=installed_cwd)
         assert challenge["correct"]
         assert challenge["total_score"] == 373.1
+        numerical = run_json(
+            [str(ebase), "challenge", "--suite", "numerical", "--json"],
+            cwd=installed_cwd,
+        )
+        assert numerical["correct"]
+        assert len(numerical["results"]) == 3
         baseline = installed_cwd / "baseline_submission.json"
         baseline.write_text(
             json.dumps({"participant": "release-smoke-baseline", **challenge}, indent=2),

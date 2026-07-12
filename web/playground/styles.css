@@ -217,10 +217,12 @@ textarea {
 }
 
 pre,
+.challengeView,
 .eventList,
 canvas,
 .ladder,
-.fieldMap {
+.fieldMap,
+.operationProfile {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -235,9 +237,45 @@ pre {
   font: 13px/1.45 Consolas, "Cascadia Mono", monospace;
 }
 
+.challengeView {
+  margin-bottom: 16px;
+  overflow: auto;
+}
+
+.challengeTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: 12px/1.4 Consolas, "Cascadia Mono", monospace;
+}
+
+.challengeTable th,
+.challengeTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.challengeTable th:first-child,
+.challengeTable td:first-child {
+  text-align: left;
+}
+
 canvas {
   height: 220px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.timelineScrubber {
+  width: 100%;
+  height: 28px;
+  margin-bottom: 8px;
+  accent-color: var(--accent);
+}
+
+.stepDetail {
+  min-height: 74px;
+  max-height: 160px;
 }
 
 .eventList,
@@ -254,6 +292,23 @@ canvas {
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   font: 13px/1.4 Consolas, "Cascadia Mono", monospace;
+}
+
+.event {
+  width: 100%;
+  height: auto;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 400;
+  text-align: left;
+}
+
+.event.selected {
+  border-left: 4px solid var(--accent);
+  background: #e8f4ef;
 }
 
 .event:last-child {
@@ -318,6 +373,31 @@ canvas {
 .error {
   color: var(--warn);
   white-space: pre-wrap;
+}
+
+.operationProfile {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.profileRow {
+  display: grid;
+  grid-template-columns: 90px minmax(60px, 1fr) 48px;
+  gap: 10px;
+  align-items: center;
+  font: 12px/1.4 Consolas, "Cascadia Mono", monospace;
+}
+
+.profileBarTrack {
+  height: 8px;
+  background: #e5ece8;
+}
+
+.profileBar {
+  height: 100%;
+  background: var(--cool);
 }
 
 @media (max-width: 900px) {

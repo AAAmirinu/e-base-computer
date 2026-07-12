@@ -11,7 +11,13 @@ from typing import Dict, Optional
 from cstyle_compiler import CStyleCompiler, compile_source
 from emulator import EPUEmulator
 from epu import EPUError
-from epu_challenge import run_challenge, run_official_suite, summarize_suite
+from epu_challenge import (
+    run_challenge,
+    run_numerical_suite,
+    run_official_suite,
+    summarize_numerical_suite,
+    summarize_suite,
+)
 from epu_experiments import get_experiment, list_experiments
 from epu_leaderboard import format_leaderboard_markdown, leaderboard_payload, load_leaderboard
 from epu_scoring import score_timeline
@@ -56,6 +62,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     challenge_parser = subparsers.add_parser("challenge", help="run official challenge scoring")
     challenge_parser.add_argument("name", nargs="?", help="optional sample slug")
     challenge_parser.add_argument("--max-steps", type=int, default=10_000)
+    challenge_parser.add_argument(
+        "--suite",
+        choices=["official", "numerical"],
+        default="official",
+        help="challenge suite to run (default: official)",
+    )
     challenge_parser.add_argument(
         "--assembly-dir",
         type=Path,
@@ -171,6 +183,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             return 0
 
         if args.command == "challenge":
+            if args.name and args.suite != "official":
+                raise ValueError("a named challenge cannot be combined with --suite")
             if args.name:
                 result = run_challenge(
                     args.name,
@@ -179,8 +193,14 @@ def main(argv: Optional[list[str]] = None) -> int:
                 )
                 payload = result.to_dict()
             else:
-                payload = summarize_suite(
-                    run_official_suite(
+                runner = run_numerical_suite if args.suite == "numerical" else run_official_suite
+                summarizer = (
+                    summarize_numerical_suite
+                    if args.suite == "numerical"
+                    else summarize_suite
+                )
+                payload = summarizer(
+                    runner(
                         max_steps=args.max_steps,
                         assembly_dir=args.assembly_dir,
                     )
@@ -231,10 +251,17 @@ def main(argv: Optional[list[str]] = None) -> int:
 def print_challenge_result(result: Dict[str, object]) -> None:
     score = result["score"]
     assert isinstance(score, dict)
+    numerical = (
+        f" numerical_score={result['numerical_score']} "
+        f"accuracy_digits={result['accuracy_digits']}"
+        if "numerical_score" in result
+        else ""
+    )
     print(
         f"{result['slug']}: correct={result['correct']} "
         f"score={score['score']} steps={result['steps']} "
         f"assembly_lines={result['assembly_lines']} max_temp={score['max_temperature']}"
+        f"{numerical}"
     )
 
 

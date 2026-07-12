@@ -14,7 +14,13 @@ from urllib.parse import parse_qs, urlparse
 from cstyle_compiler import CStyleCompileError, CStyleCompiler
 from emulator import EPUEmulator
 from epu import EPUError
-from epu_challenge import run_challenge, run_official_suite, summarize_suite
+from epu_challenge import (
+    run_challenge,
+    run_numerical_suite,
+    run_official_suite,
+    summarize_numerical_suite,
+    summarize_suite,
+)
 from epu_experiments import list_experiments
 from epu_scoring import score_timeline
 
@@ -59,8 +65,9 @@ class PlaygroundHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/challenge":
             query = parse_qs(parsed.query)
             name = query.get("name", [None])[0]
+            suite = query.get("suite", ["official"])[0]
             try:
-                self._send_json(challenge_payload(name))
+                self._send_json(challenge_payload(name, suite=suite))
             except (KeyError, ValueError, EPUError) as exc:
                 self._send_json({"ok": False, "error": str(exc)}, 400)
             return
@@ -179,10 +186,20 @@ def samples_payload() -> Dict[str, Any]:
     }
 
 
-def challenge_payload(name: Optional[str] = None) -> Dict[str, Any]:
+def challenge_payload(
+    name: Optional[str] = None, suite: str = "official"
+) -> Dict[str, Any]:
     if name:
+        if suite != "official":
+            raise ValueError("a named challenge cannot be combined with a suite")
         return {"ok": True, "challenge": run_challenge(name).to_dict()}
-    summary = summarize_suite(run_official_suite())
+    if suite == "official":
+        summary = summarize_suite(run_official_suite())
+        summary["suite"] = "official"
+    elif suite == "numerical":
+        summary = summarize_numerical_suite(run_numerical_suite())
+    else:
+        raise ValueError(f"unknown challenge suite: {suite}")
     summary["ok"] = True
     return summary
 

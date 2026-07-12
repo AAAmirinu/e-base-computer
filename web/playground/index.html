@@ -21,7 +21,11 @@
       <label>precision <input id="precisionInput" type="number" min="0" max="12" value="8"></label>
       <button id="runButton" type="button">Run</button>
       <button id="copyLinkButton" type="button">Copy Program Link</button>
-      <button id="challengeButton" type="button">Run Official Suite</button>
+      <select id="challengeSuiteSelect" aria-label="challenge suite">
+        <option value="official">Official suite</option>
+        <option value="numerical">Numerical suite</option>
+      </select>
+      <button id="challengeButton" type="button">Run Suite</button>
       <button id="copyChallengeButton" type="button" disabled>Copy JSON</button>
       <span id="shareStatus" class="shareStatus">not shared</span>
       <span id="engineStatus" class="engineStatus">server</span>
@@ -41,7 +45,7 @@
           <h2>Official Challenge</h2>
           <span id="challengeStatus">not run</span>
         </div>
-        <pre id="challengeView"></pre>
+        <div id="challengeView" class="challengeView"></div>
       </section>
       <div class="split">
         <section>
@@ -54,8 +58,13 @@
         </section>
       </div>
       <section>
-        <h2>Thermal Timeline</h2>
+        <div class="sectionHead">
+          <h2>Thermal & Precision Timeline</h2>
+          <span id="timelineStatus">no trace</span>
+        </div>
         <canvas id="timelineCanvas" width="900" height="220"></canvas>
+        <input id="timelineScrubber" class="timelineScrubber" type="range" min="0" max="0" value="0" aria-label="timeline step">
+        <pre id="stepDetail" class="stepDetail"></pre>
       </section>
       <div class="split">
         <section>
@@ -68,8 +77,15 @@
         </section>
       </div>
       <section>
-        <h2>Events</h2>
+        <div class="sectionHead">
+          <h2>Events</h2>
+          <span>select a tick to inspect state</span>
+        </div>
         <div id="eventList" class="eventList"></div>
+      </section>
+      <section>
+        <h2>Operation Profile</h2>
+        <div id="operationProfile" class="operationProfile"></div>
       </section>
     </section>
   </main>

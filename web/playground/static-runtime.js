@@ -79,8 +79,57 @@ if (signal >= 0) {
     print(0);
 }
 `
+    },
+    {
+      slug: "numerical-polynomial",
+      title: "Numerical: Horner polynomial",
+      language: "c",
+      description: "Evaluate a mixed-sign polynomial with Horner's method.",
+      source: `let x = 1.23456789;
+let y = 0.125;
+y = y * x - 0.75;
+y = y * x + 1.5;
+y = y * x - 2.0;
+y = y * x + 0.333333333333;
+print(y);
+`
+    },
+    {
+      slug: "numerical-cancellation",
+      title: "Numerical: cancellation",
+      language: "c",
+      description: "Preserve a small residual across subtraction of large nearby values.",
+      source: `let large = 100000000;
+let residual = 1.23456789;
+let combined = large + residual;
+let recovered = combined - large;
+print(recovered);
+`
+    },
+    {
+      slug: "numerical-recurrence",
+      title: "Numerical: logistic recurrence",
+      language: "c",
+      description: "Track rounding and operation ordering through a sensitive recurrence.",
+      source: `let x = 0.31415926;
+let rate = 3.9;
+let one = 1;
+let n = 12;
+while (n > 0) {
+    x = rate * x * (one - x);
+    n = n - 1;
+}
+print(x);
+`
     }
   ];
+
+  const OFFICIAL_SLUGS = ["factorial", "e-ladder", "cold-memory", "thermal-degrade", "branching"];
+  const NUMERICAL_EXPECTED = {
+    "numerical-polynomial": -0.9704407594824638,
+    "numerical-cancellation": 1.23456789,
+    "numerical-recurrence": 0.843256190266822
+  };
 
   function samples() {
     return SAMPLES.map((sample) => ({...sample}));
@@ -97,10 +146,13 @@ if (signal >= 0) {
     throw new Error(`unknown language: ${language}`);
   }
 
-  function runChallengeSuite() {
-    const results = SAMPLES.map((sample) => {
-      const payload = run({source: sample.source, language: sample.language, precision: 8, maxSteps: 10000});
-      return {
+  function runChallengeSuite(suite = "official") {
+    const selected = suite === "numerical"
+      ? SAMPLES.filter((sample) => Object.hasOwn(NUMERICAL_EXPECTED, sample.slug))
+      : SAMPLES.filter((sample) => OFFICIAL_SLUGS.includes(sample.slug));
+    const results = selected.map((sample) => {
+      const payload = run({source: sample.source, language: sample.language, precision: suite === "numerical" ? 12 : 8, maxSteps: 10000});
+      const result = {
         slug: sample.slug,
         title: sample.title,
         language: sample.language,
@@ -111,13 +163,30 @@ if (signal >= 0) {
         steps: payload.steps,
         score: payload.score
       };
+      if (suite === "numerical") {
+        const expected = NUMERICAL_EXPECTED[sample.slug];
+        const actual = Number(payload.output.OUT0);
+        const absoluteError = Math.abs(actual - expected);
+        const relativeError = absoluteError / Math.max(Math.abs(expected), 1e-15);
+        result.expected = {OUT0: expected};
+        result.correct = relativeError <= 5e-8 || absoluteError <= 5e-8;
+        result.absolute_error = round(absoluteError, 15);
+        result.relative_error = round(relativeError, 15);
+        result.accuracy_digits = round(relativeError <= 0 ? 15 : Math.max(0, Math.min(15, -Math.log10(relativeError))), 3);
+        result.error_penalty = round(Math.min(1000000, relativeError * 1000000), 6);
+        result.numerical_score = round(result.score.score + result.error_penalty, 6);
+      }
+      return result;
     });
-    const total = round(results.reduce((sum, result) => sum + Number(result.score.score || 0), 0), 1);
+    const total = round(results.reduce((sum, result) => sum + Number(suite === "numerical" ? result.numerical_score : result.score.score || 0), 0), suite === "numerical" ? 6 : 1);
     return {
       ok: true,
       static_fallback: true,
-      correct: true,
+      suite,
+      correct: results.every((result) => result.correct),
       total_score: total,
+      performance_score: round(results.reduce((sum, result) => sum + Number(result.score.score || 0), 0), 6),
+      mean_accuracy_digits: suite === "numerical" ? round(results.reduce((sum, result) => sum + result.accuracy_digits, 0) / results.length, 3) : undefined,
       results
     };
   }

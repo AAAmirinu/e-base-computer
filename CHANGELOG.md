@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added timeline scrubbing, synchronized per-step state inspection, temperature
+  and precision traces, operation profiles, and tabular challenge results to the
+  Playground.
+- Added a numerical compiler challenge suite for polynomial evaluation,
+  cancellation, and recurrence kernels with explicit accuracy and deterministic
+  performance metrics.
+
 - Relicensed the technical implementation and documentation under Apache-2.0.
 - Added `NOTICE`, `TRADEMARKS.md`, and `TECHNICAL_SCOPE.md` for attribution,
   project-name use, and the public technical boundary.

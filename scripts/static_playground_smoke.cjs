@@ -118,28 +118,29 @@ async function smokeStaticPage(pageRoot) {
     window.EBaseStaticRuntime = require(runtimePath);
     require(appPath);
     await settle();
+    await settle();
 
     assert.strictEqual(text("engineStatus"), "static fallback", `${pageRoot} engine status`);
     assert(optionValues(document.getElementById("sampleSelect")).includes("thermal-degrade"), `${pageRoot} sample options`);
     assert(text("sampleDescription").length > 0, `${pageRoot} sample description`);
-    assert(text("outputView").includes('"OUT0": 120'), `${pageRoot} initial run output`);
+    assert(
+      text("outputView").includes('"OUT0": 120'),
+      `${pageRoot} initial run output: ${text("outputView")}`,
+    );
     assert(metricsText(document).includes("engine"), `${pageRoot} metrics engine label`);
     assert(metricsText(document).includes("static"), `${pageRoot} metrics static value`);
 
     await document.getElementById("challengeButton").click();
     await settle();
 
-    assert(text("challengeStatus").startsWith("demo only correct=true"), `${pageRoot} demo challenge status`);
+    assert(text("challengeStatus").startsWith("demo official correct=true"), `${pageRoot} demo challenge status`);
     assert.strictEqual(document.getElementById("copyChallengeButton").disabled, true, `${pageRoot} copy disabled`);
-    const challengePayload = JSON.parse(text("challengeView"));
-    assert.strictEqual(challengePayload.demo_only, true, `${pageRoot} demo_only payload`);
-    assert.strictEqual(challengePayload.official_submission, false, `${pageRoot} official submission flag`);
-    assert.strictEqual(challengePayload.total_score, 297.9, `${pageRoot} static challenge score`);
-    assert.deepStrictEqual(
-      challengePayload.results.map((result) => result.slug),
-      expectedSlugs,
-      `${pageRoot} static challenge slugs`,
-    );
+    assert(text("challengeView").includes("thermal-degrade"), `${pageRoot} challenge table`);
+    document.getElementById("challengeSuiteSelect").value = "numerical";
+    await document.getElementById("challengeButton").click();
+    await settle();
+    assert(text("challengeStatus").startsWith("demo numerical correct=true"), `${pageRoot} numerical status`);
+    assert(text("challengeView").includes("numerical-recurrence"), `${pageRoot} numerical table`);
     assert.deepStrictEqual(unhandled, [], `${pageRoot} unhandled rejections`);
   } finally {
     console.warn = originalWarn;
@@ -169,18 +170,23 @@ function createDocument() {
     ["runButton", "button"],
     ["copyLinkButton", "button"],
     ["challengeButton", "button"],
+    ["challengeSuiteSelect", "select"],
     ["copyChallengeButton", "button"],
     ["metrics", "div"],
     ["outputView", "pre"],
     ["assemblyView", "pre"],
     ["challengeStatus", "span"],
-    ["challengeView", "pre"],
+    ["challengeView", "div"],
     ["shareStatus", "span"],
     ["engineStatus", "span"],
     ["eventList", "div"],
     ["registerLadder", "div"],
     ["fieldMap", "div"],
     ["timelineCanvas", "canvas"],
+    ["timelineScrubber", "input"],
+    ["timelineStatus", "span"],
+    ["stepDetail", "pre"],
+    ["operationProfile", "div"],
     ["sampleDescription", "div"],
   ];
   for (const [id, tagName] of ids) {
@@ -190,6 +196,7 @@ function createDocument() {
   }
   byId.get("languageSelect").value = "c";
   byId.get("precisionInput").value = "8";
+  byId.get("challengeSuiteSelect").value = "official";
   byId.get("copyChallengeButton").disabled = true;
   byId.get("timelineCanvas").width = 900;
   byId.get("timelineCanvas").height = 220;
@@ -206,8 +213,17 @@ class Element {
     this.value = "";
     this.id = "";
     this.className = "";
+    this.style = {};
     this._textContent = "";
     this._innerHTML = "";
+    this.classList = {
+      toggle: (name, enabled) => {
+        const classes = new Set(this.className.split(/\s+/).filter(Boolean));
+        if (enabled) classes.add(name);
+        else classes.delete(name);
+        this.className = Array.from(classes).join(" ");
+      },
+    };
   }
 
   appendChild(child) {
@@ -217,6 +233,10 @@ class Element {
       this.value = child.value;
     }
     return child;
+  }
+
+  append(...children) {
+    children.forEach((child) => this.appendChild(child));
   }
 
   addEventListener(type, listener) {

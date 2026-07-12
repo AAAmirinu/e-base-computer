@@ -59,7 +59,7 @@ python -m unittest discover -s tests
 
 - Playgroundでサンプルを選んで `Run` し、E桁、温度、観測イベントを眺める。
 - `Copy Program Link` で編集中のC-like/EPUコードをURLとして共有する。
-- ローカル版の `Run Official Suite` で公式チャレンジを実行し、`Copy JSON` で結果を共有する。
+- ローカル版の `Run Suite` でチャレンジを実行し、`Copy JSON` で結果を共有する。
 - `examples/challenges/` のプログラムを変えて、より短い/冷たいEPUアセンブリを試す。
 - コンパイラや可視化を改造して、IssueやDiscussionで結果を見せる。
 
@@ -169,7 +169,9 @@ Playgroundでは、左側にC風ソースまたはEPUアセンブリを書き、
 - 観測出力
 - ステップ数、スコア、最大温度、観測回数
 - 命令イベント一覧
-- 温度タイムライン
+- 温度と安全分割数のタイムライン、命令スクラバー
+- 任意tick時点のレジスタ、Eフィールド、命令詳細
+- 命令種別ごとの実行プロファイル
 - 公式チャレンジ結果と提出用JSON
 
 ローカル開発用サーバなので、公開インターネットへ直接さらさないでください。公開ページとして見せる場合は
@@ -222,6 +224,17 @@ ebase challenge --assembly-dir .\generated-assembly --json
 ```
 
 提出前には、このJSONの `correct` が `true` であることを確認してください。
+
+数値計算部門では、多項式、桁落ち、反復計算について、誤差と決定論的な実行stepsを
+同時に測ります。
+
+```powershell
+ebase challenge --suite numerical --json
+ebase challenge --suite numerical --assembly-dir .\generated-assembly --json
+```
+
+参照値、許容誤差、順位規則は
+[docs/numerical_challenge.md](docs/numerical_challenge.md) を参照してください。
 
 ## テスト
 

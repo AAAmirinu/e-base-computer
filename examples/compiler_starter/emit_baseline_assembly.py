@@ -13,11 +13,22 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from epu_challenge import OFFICIAL_CHALLENGE_SLUGS, official_assembly_for_slug
+from epu_challenge import (
+    NUMERICAL_CHALLENGE_SLUGS,
+    OFFICIAL_CHALLENGE_SLUGS,
+    numerical_assembly_for_slug,
+    official_assembly_for_slug,
+)
 
 
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="emit_baseline_assembly")
+    parser.add_argument(
+        "--suite",
+        choices=["official", "numerical"],
+        default="official",
+        help="challenge suite to emit (default: official)",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -35,12 +46,14 @@ def main(argv: List[str] | None = None) -> int:
     output.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     skipped: list[Path] = []
-    for slug in OFFICIAL_CHALLENGE_SLUGS:
+    slugs = NUMERICAL_CHALLENGE_SLUGS if args.suite == "numerical" else OFFICIAL_CHALLENGE_SLUGS
+    assembly_for_slug = numerical_assembly_for_slug if args.suite == "numerical" else official_assembly_for_slug
+    for slug in slugs:
         path = output / f"{slug}.epu"
         if path.exists() and not args.force:
             skipped.append(path)
             continue
-        path.write_text(official_assembly_for_slug(slug).rstrip() + "\n", encoding="utf-8")
+        path.write_text(assembly_for_slug(slug).rstrip() + "\n", encoding="utf-8")
         written.append(path)
 
     for path in written:
@@ -48,7 +61,8 @@ def main(argv: List[str] | None = None) -> int:
     for path in skipped:
         print(f"skip existing {path}; pass --force to overwrite")
     print(f"assembly_dir: {output}")
-    print(f"next: python -m epu_cli challenge --assembly-dir {output} --json")
+    suite_arg = " --suite numerical" if args.suite == "numerical" else ""
+    print(f"next: python -m epu_cli challenge{suite_arg} --assembly-dir {output} --json")
     return 0
 
 

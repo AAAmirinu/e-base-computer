@@ -94,6 +94,53 @@ if (signal >= 0) {
 }
 """,
     ),
+    Experiment(
+        slug="numerical-polynomial",
+        title="Numerical: Horner polynomial",
+        language="c",
+        description="Evaluate a mixed-sign polynomial with Horner's method.",
+        source="""let x = 1.23456789;
+let y = 0.125;
+
+y = y * x - 0.75;
+y = y * x + 1.5;
+y = y * x - 2.0;
+y = y * x + 0.333333333333;
+
+print(y);
+""",
+    ),
+    Experiment(
+        slug="numerical-cancellation",
+        title="Numerical: cancellation",
+        language="c",
+        description="Preserve a small residual across subtraction of large nearby values.",
+        source="""let large = 100000000;
+let residual = 1.23456789;
+let combined = large + residual;
+let recovered = combined - large;
+
+print(recovered);
+""",
+    ),
+    Experiment(
+        slug="numerical-recurrence",
+        title="Numerical: logistic recurrence",
+        language="c",
+        description="Track rounding and operation ordering through a sensitive recurrence.",
+        source="""let x = 0.31415926;
+let rate = 3.9;
+let one = 1;
+let n = 12;
+
+while (n > 0) {
+    x = rate * x * (one - x);
+    n = n - 1;
+}
+
+print(x);
+""",
+    ),
 ]
 
 

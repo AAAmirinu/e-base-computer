@@ -18,10 +18,13 @@ from cstyle_compiler import CStyleCompiler
 from emulator import EPUEmulator
 from epu_challenge import (
     EXPECTED_OUTPUTS,
+    NUMERICAL_CHALLENGE_SLUGS,
     OFFICIAL_CHALLENGE_SLUGS,
     official_assembly_for_slug,
     run_challenge,
+    run_numerical_suite,
     run_official_suite,
+    summarize_numerical_suite,
     summarize_suite,
 )
 from epu_cli import main
@@ -128,6 +131,38 @@ class CLITests(unittest.TestCase):
             self.assertEqual(main(["challenge", "missing-sample"]), 1)
         self.assertIn("error:", stderr.getvalue())
 
+    def test_cli_numerical_challenge_reports_accuracy_and_cost(self) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            self.assertEqual(main(["challenge", "--suite", "numerical", "--json"]), 0)
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["suite"], "numerical")
+        self.assertTrue(payload["correct"])
+        self.assertEqual(
+            [result["slug"] for result in payload["results"]],
+            list(NUMERICAL_CHALLENGE_SLUGS),
+        )
+        self.assertTrue(all(result["accuracy_digits"] >= 8 for result in payload["results"]))
+        self.assertTrue(all(result["numerical_score"] >= result["score"]["score"] for result in payload["results"]))
+
+    def test_numerical_submission_is_ranked_by_error_before_cost(self) -> None:
+        baseline = summarize_numerical_suite(run_numerical_suite())
+        worse_error = json.loads(json.dumps(baseline))
+        worse_error["results"][0]["relative_error"] = 1e-8
+        worse_error["results"][0]["accuracy_digits"] = 8.0
+        worse_error["results"][0]["numerical_score"] += 0.01
+        worse_error["total_score"] += 0.01
+        with tempfile.TemporaryDirectory() as temp_dir:
+            better_path = Path(temp_dir) / "better.json"
+            worse_path = Path(temp_dir) / "worse.json"
+            better_path.write_text(json.dumps(baseline), encoding="utf-8")
+            worse_path.write_text(json.dumps(worse_error), encoding="utf-8")
+            entries = load_leaderboard([worse_path, better_path])
+
+        self.assertEqual(entries[0].participant, "better")
+        self.assertEqual(entries[0].suite, "numerical")
+
     def test_cli_challenge_can_score_generated_assembly_dir(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             assembly_dir = Path(temp_dir)
@@ -184,6 +219,48 @@ class CLITests(unittest.TestCase):
 
         self.assertTrue(payload["correct"])
         self.assertEqual(payload["total_score"], 373.1)
+        self.assertTrue(
+            all(result["submission_source"] == "assembly-dir" for result in payload["results"])
+        )
+
+    def test_compiler_starter_emits_numerical_assembly_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            assembly_dir = Path(temp_dir) / "generated-numerical"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "examples" / "compiler_starter" / "emit_baseline_assembly.py"),
+                    "--suite",
+                    "numerical",
+                    "--output",
+                    str(assembly_dir),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(
+                {path.stem for path in assembly_dir.glob("*.epu")},
+                set(NUMERICAL_CHALLENGE_SLUGS),
+            )
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                self.assertEqual(
+                    main([
+                        "challenge",
+                        "--suite",
+                        "numerical",
+                        "--assembly-dir",
+                        str(assembly_dir),
+                        "--json",
+                    ]),
+                    0,
+                )
+            payload = json.loads(stdout.getvalue())
+
+        self.assertTrue(payload["correct"])
         self.assertTrue(
             all(result["submission_source"] == "assembly-dir" for result in payload["results"])
         )
@@ -272,7 +349,7 @@ class CLITests(unittest.TestCase):
             with contextlib.redirect_stdout(stdout):
                 self.assertEqual(main(["leaderboard", str(baseline), str(broken)]), 1)
             text = stdout.getvalue()
-            self.assertIn("| Rank | Participant |", text)
+            self.assertIn("| Rank | Suite | Participant |", text)
             self.assertIn("baseline", text)
 
             stdout = io.StringIO()
@@ -360,6 +437,15 @@ class ChallengeTests(unittest.TestCase):
 
         self.assertTrue(result.correct)
         self.assertGreaterEqual(result.score.degraded_events, 1)
+
+    def test_numerical_challenges_are_correct_and_expose_error_metrics(self) -> None:
+        results = run_numerical_suite()
+        summary = summarize_numerical_suite(results)
+
+        self.assertTrue(summary["correct"])
+        self.assertEqual([result.slug for result in results], list(NUMERICAL_CHALLENGE_SLUGS))
+        self.assertGreater(summary["performance_score"], 0)
+        self.assertGreater(summary["mean_accuracy_digits"], 8)
 
 
 class SpecTests(unittest.TestCase):
@@ -453,6 +539,11 @@ class WebPayloadTests(unittest.TestCase):
         self.assertTrue(single["ok"])
         self.assertTrue(single["challenge"]["correct"])
         self.assertEqual(single["challenge"]["slug"], "thermal-degrade")
+
+        numerical = challenge_payload(suite="numerical")
+        self.assertTrue(numerical["ok"])
+        self.assertEqual(numerical["suite"], "numerical")
+        self.assertEqual(len(numerical["results"]), len(NUMERICAL_CHALLENGE_SLUGS))
 
     def test_run_payload_reports_compile_error(self) -> None:
         payload, status = run_payload({"source": "x = 1;", "language": "c"})

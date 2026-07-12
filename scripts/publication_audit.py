@@ -91,6 +91,7 @@ def check_required_files(audit: Audit) -> None:
         ".github/ISSUE_TEMPLATE/compiler_challenge.md",
         ".github/ISSUE_TEMPLATE/good_first_experiment.md",
         "docs/compiler_challenge.md",
+        "docs/numerical_challenge.md",
         "docs/behavior_model.md",
         "docs/cstyle_compiler.md",
         "docs/e_word_model.md",
@@ -144,12 +145,13 @@ def check_public_docs(audit: Audit) -> None:
             "docker build -t e-base-computer .",
             "GitHub Codespaces",
             "GitHub Pages",
-            "Run Official Suite",
+            "Run Suite",
             "Eならではの挙動",
             "docs/behavior_model.md",
             "Copy Program Link",
             "ebase challenge --json",
             "ebase challenge --assembly-dir",
+            "ebase challenge --suite numerical",
             "emit_baseline_assembly.py",
             "ebase leaderboard",
             "Issues` -> `New issue` -> `Compiler challenge entry",
@@ -182,7 +184,11 @@ def check_public_docs(audit: Audit) -> None:
     )
     audit.require_text(
         ROOT / "docs" / "compiler_challenge.md",
-        ["total_score=373.1", "参加者ワークフロー", "--assembly-dir", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "変更してはいけないもの", "タイブレーク", "Issues` -> `New issue` -> `Compiler challenge entry"],
+        ["total_score=373.1", "参加者ワークフロー", "--assembly-dir", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "変更してはいけないもの", "タイブレーク", "--suite numerical", "Issues` -> `New issue` -> `Compiler challenge entry"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "numerical_challenge.md",
+        ["binary64", "relative_error", "accuracy_digits", "5e-8", "numerical_score", "合計steps"],
     )
     audit.require_text(
         ROOT / "docs" / "cstyle_compiler.md",
@@ -202,7 +208,7 @@ def check_public_docs(audit: Audit) -> None:
     )
     audit.require_text(
         ROOT / "docs" / "playground.md",
-        ["Python 3.11", "/api/challenge", "Copy JSON", "Copy Program Link", "Run Official Suite", "static fallback", "GitHub Pages版はデモ用", "公式チャレンジ提出用JSON"],
+        ["Python 3.11", "/api/challenge", "Copy JSON", "Copy Program Link", "Run Suite", "Timeline Scrubber", "Operation Profile", "static fallback", "GitHub Pages版はデモ用", "公式チャレンジ提出用JSON"],
     )
     audit.require_text(
         ROOT / "examples" / "compiler_starter" / "README.md",
@@ -247,8 +253,8 @@ def check_playground_assets(audit: Audit) -> None:
         audit.check(f"packaged playground {name} exists", packaged.exists())
         if source.exists() and packaged.exists():
             audit.check(f"playground {name} is in sync", source.read_bytes() == packaged.read_bytes())
-    audit.require_text(source_root / "index.html", ["static-runtime.js", "Run Official Suite", "Copy Program Link", "Copy JSON", "Official Challenge"])
-    audit.require_text(source_root / "app.js", ["/api/challenge", "copyChallengeJson", "copyShareLink", "loadSharedState", "runStaticProgram", "demo_only", "sampleDescription"])
+    audit.require_text(source_root / "index.html", ["static-runtime.js", "Run Suite", "Copy Program Link", "Copy JSON", "Official Challenge", "timelineScrubber", "operationProfile"])
+    audit.require_text(source_root / "app.js", ["/api/challenge", "copyChallengeJson", "copyShareLink", "loadSharedState", "runStaticProgram", "challengeSuiteSelect", "timelineScrubber", "renderOperationProfile", "sampleDescription"])
     audit.require_text(source_root / "static-runtime.js", ["EBaseStaticRuntime", "runChallengeSuite", "thermal-degrade"])
     index_text = read_text(source_root / "index.html")
     static_index = index_text.find("static-runtime.js")
@@ -263,7 +269,14 @@ def check_challenge_baseline(audit: Audit) -> None:
     sys.dont_write_bytecode = True
     sys.path.insert(0, str(SRC))
     try:
-        from epu_challenge import OFFICIAL_CHALLENGE_SLUGS, run_official_suite, summarize_suite
+        from epu_challenge import (
+            NUMERICAL_CHALLENGE_SLUGS,
+            OFFICIAL_CHALLENGE_SLUGS,
+            run_numerical_suite,
+            run_official_suite,
+            summarize_numerical_suite,
+            summarize_suite,
+        )
         from epu_leaderboard import load_submission
         from epu_spec import spec_payload
         from web_playground import challenge_payload
@@ -285,6 +298,10 @@ def check_challenge_baseline(audit: Audit) -> None:
     audit.check("web challenge payload ok", payload.get("ok") is True)
     audit.check("web challenge payload correct", payload.get("correct") is True)
     audit.check("web challenge payload score stable", payload.get("total_score") == EXPECTED_TOTAL_SCORE)
+    numerical = summarize_numerical_suite(run_numerical_suite())
+    audit.check("numerical challenge slug count", len(NUMERICAL_CHALLENGE_SLUGS) == 3)
+    audit.check("numerical challenge correct", numerical.get("correct") is True)
+    audit.check("numerical challenge reports accuracy", numerical.get("mean_accuracy_digits", 0) > 8)
     baseline_entry = load_submission(ROOT / "examples" / "challenges" / "baseline_submission.json")
     audit.check("baseline leaderboard submission valid", baseline_entry.valid)
     audit.check("baseline leaderboard submission score stable", baseline_entry.total_score == EXPECTED_TOTAL_SCORE)
@@ -329,6 +346,7 @@ def check_commands(audit: Audit) -> None:
         ([sys.executable, "scripts/finalize_project_urls.py", "owner/repo", "--playground-url", "https://play.example.test/"], "release helper custom playground dry run"),
         ([sys.executable, "scripts/make_release_bundle.py", "--dry-run"], "release bundle dry run"),
         ([sys.executable, "-m", "epu_cli", "challenge", "--json"], "challenge CLI"),
+        ([sys.executable, "-m", "epu_cli", "challenge", "--suite", "numerical", "--json"], "numerical challenge CLI"),
         ([sys.executable, "-m", "epu_cli", "leaderboard", "examples/challenges/baseline_submission.json"], "leaderboard CLI"),
         ([sys.executable, "-m", "epu_cli", "leaderboard", "examples/challenges/*.json"], "leaderboard glob CLI"),
         ([sys.executable, "-m", "epu_cli", "leaderboard", "examples/challenges/*.json", "--best-per-participant"], "leaderboard best CLI"),

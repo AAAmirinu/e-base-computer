@@ -30,6 +30,16 @@ filenames into the output directory, then run the same `--assembly-dir` command.
 Missing files fall back to the built-in baseline, which is useful while you are
 optimizing one challenge at a time.
 
+For the numerical suite:
+
+```powershell
+python .\examples\compiler_starter\emit_baseline_assembly.py --suite numerical --output .\generated-numerical
+ebase challenge --suite numerical --assembly-dir .\generated-numerical --json
+```
+
+This emits `numerical-polynomial.epu`, `numerical-cancellation.epu`, and
+`numerical-recurrence.epu`.
+
 Safe things to modify:
 
 - The generated `.epu` files.
