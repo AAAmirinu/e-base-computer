@@ -2,34 +2,67 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 0.2.0 - 2026-09-04
 
-- Added timeline scrubbing, synchronized per-step state inspection, temperature
-  and precision traces, operation profiles, and tabular challenge results to the
-  Playground.
-- Added a numerical compiler challenge suite for polynomial evaluation,
-  cancellation, and recurrence kernels with explicit accuracy and deterministic
-  performance metrics.
+- Preserved and extended the public Playground experience with timeline
+  scrubbing, synchronized per-step state inspection, temperature and precision
+  traces, operation profiles, tabular challenge results, shareable links, and
+  all eight existing samples.
+- Preserved the numerical compiler challenge suite for polynomial evaluation,
+  cancellation, and recurrence kernels across the CLI, Python server, static
+  Playground, starter compiler, and leaderboard.
+- Added challenge schema, emulator version, and scoring-model provenance;
+  unversioned v0.1 submissions remain readable but are isolated in an explicit
+  legacy comparison cohort instead of being silently ranked against v0.2.
+- Hardened Playground request validation so malformed JSON, invalid limits,
+  large source bodies, numeric overflow, and deep source nesting return client
+  errors instead of unhandled server failures.
+- Rejected non-finite E-word values consistently across the emulator, CLI, and
+  Playground, accepted UTF-8 BOM-prefixed C-like source files on Windows, and
+  enforced documented EPU field/bank allocation limits.
+- Added a technical behavior guide covering heat costs, cooling, memory-bank
+  differences, safe quantization partitions, degradation, observation,
+  refresh, and scoring, while enforcing the documented partition ladder
+  (`3, 9, 27, 81, 243`) in Python and the static Playground.
 
+- Unified native and control instructions under one thermal/tick lifecycle, so
+  branches, `EPRINT`, and `EHALT` now advance cooling and refresh pressure.
+- Added capability-aware task contexts, field ownership enforcement, a
+  versioned runtime API, target-local degradation policy, and finite E-word
+  input validation.
+- Connected `CR.thermal_model` to execution with an exact `simple-v0`
+  compatibility model and a deterministic, energy-conserving `coupled-v1`
+  field/bank heat-exchange model with published schema-v1 coefficients.
+- Added opt-in deterministic `aging-v1` noise/health evolution and executable
+  balanced-ternary `TR0..TR7` plus a derived read-only `TEMP` diagnostic layer.
+- Added a schema-v1 machine-readable metadata propagation contract covering all
+  38 opcodes, with executable drift checks and atomic snapshot/observer guards.
+- Added a versioned high-level execution analysis that summarizes instruction
+  mix, maintenance, exceptions, model usage, and thermal/noise/health hotspots
+  independently from challenge scoring.
+- Exposed auto-refresh and destructive/non-destructive observation as validated
+  task-runtime, CLI, and local Playground controls with effective settings in
+  every result.
+- Added a versioned independent calibration-data contract with provenance and
+  SHA-256 integrity, fixed train/validation/holdout labels, and a read-only
+  residual evaluator reporting MAE, RMSE, maximum error, and coverage. The
+  bundled test fixture is explicitly synthetic and makes no empirical claim.
+- Recalibrated the current official baseline score from `373.1` to `366.6`;
+  outputs are unchanged, while control-heavy programs receive corrected
+  per-tick cooling and initializer-register promotion removes redundant moves
+  from C-like assembly.
+- Replaced the static Playground's direct C-like evaluator with a deterministic
+  JavaScript compiler that emits the same EPU assembly, symbols, diagnostics,
+  output order, execution events, and challenge scores as `CStyleCompiler` for
+  the cross-runtime conformance corpus.
+- Expanded static `runAsm` to all 38 public opcodes with exact discrete-state,
+  output, control-flow, and diagnostic parity against Python plus documented
+  schema-v1 floating-point tolerances.
 - Relicensed the technical implementation and documentation under Apache-2.0.
 - Added `NOTICE`, `TRADEMARKS.md`, and `TECHNICAL_SCOPE.md` for attribution,
   project-name use, and the public technical boundary.
 - Removed worldbuilding and narrative material from the public documentation
   set and excluded local private materials from release bundles.
-- Hardened Playground request validation so malformed JSON, invalid limits, large
-  source bodies, numeric overflow, and deep source nesting return client errors
-  instead of unhandled server failures.
-- Rejected non-finite E-word values consistently across the emulator, CLI, and
-  Playground, and accepted UTF-8 BOM-prefixed C-like source files on Windows.
-- Added documented EPU field and bank allocation limits so a single assembly
-  program cannot exhaust the Playground's local memory model.
-- Linked the live GitHub Pages Playground from the README and expanded the
-  C-like compiler reference with supported syntax, limits, and error guidance.
-- Added a technical behavior guide covering heat costs, cooling, memory-bank
-  differences, safe quantization partitions, degradation, observation, refresh,
-  and scoring.
-- Enforced the documented partition ladder (`3, 9, 27, 81, 243`) in both the
-  Python runtime and static Playground.
 
 ## 0.1.0 - Initial Public Preview
 

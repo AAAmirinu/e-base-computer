@@ -70,6 +70,19 @@ class CStyleCompilerTests(unittest.TestCase):
 
         self.assertTrue(isclose(result.output["OUT0"], 55.125))
 
+    def test_utf8_bom_is_accepted(self) -> None:
+        result = CStyleCompiler(precision=8).compile_and_run(
+            "\ufefflet x = 2; print(x);"
+        )
+
+        self.assertEqual(result.output["OUT0"], 2.0)
+
+    def test_deep_nesting_is_a_compile_error(self) -> None:
+        source = "print(" + "(" * 1500 + "1" + ")" * 1500 + ");"
+
+        with self.assertRaisesRegex(CStyleCompileError, "source nesting is too deep"):
+            CStyleCompiler().compile(source)
+
     def test_expression_precedence_unary_and_left_association(self) -> None:
         result = CStyleCompiler(precision=8).compile_and_run(
             """
@@ -84,11 +97,6 @@ class CStyleCompilerTests(unittest.TestCase):
         self.assertEqual(result.output["OUT1"], 9.0)
         self.assertEqual(result.output["OUT2"], 5.0)
         self.assertEqual(result.output["OUT3"], -14.0)
-
-    def test_utf8_bom_source_compiles(self) -> None:
-        result = CStyleCompiler(precision=8).compile_and_run("\ufefflet x = 2; print(x);")
-
-        self.assertEqual(result.output["OUT0"], 2.0)
 
     def test_while_factorial(self) -> None:
         result = CStyleCompiler(precision=8).compile_and_run(

@@ -85,17 +85,17 @@ python -m epu_cli challenge --assembly-dir .\generated-assembly --json
 
 | slug | expected output | language | baseline score | baseline steps | baseline assembly lines |
 | --- | --- | --- | ---: | ---: | ---: |
-| `factorial` | `OUT0 = 120.0` | C-like | 73.3 | 58 | 21 |
+| `factorial` | `OUT0 = 120.0` | C-like | 70.7 | 56 | 19 |
 | `e-ladder` | `OUT0 = 144.40872214` | EPU asm | 20.7 | 6 | 6 |
 | `cold-memory` | `OUT0 = 7.5` | EPU asm | 20.2 | 6 | 6 |
-| `thermal-degrade` | `OUT0 = 1.62761319` | EPU asm | 233.5 | 98 | 12 |
-| `branching` | `OUT0 = 0.0` | C-like | 25.4 | 12 | 18 |
+| `thermal-degrade` | `OUT0 = 1.62761319` | EPU asm | 230.5 | 98 | 12 |
+| `branching` | `OUT0 = 0.0` | C-like | 24.5 | 11 | 17 |
 
 Baseline total:
 
 ```text
 correct=true
-total_score=373.1
+total_score=366.6
 ```
 
 `examples/challenges/` のファイルは、単体実行や説明用の素材です。公式順位は
@@ -152,7 +152,10 @@ Discussionは設計メモ、解説、途中経過、別解の相談に使って�
 
 提出JSONは次の形を満たす必要があります。
 
-- トップレベルに `correct`, `total_score`, `results` がある。
+- トップレベルに `challenge_schema_version=2`, `emulator_version`, `suite`,
+  `scoring_model`, `correct`, `total_score`, `results` がある。
+- v0.2.0の `emulator_version` は `0.2.0`。公式スイートの `scoring_model` は
+  `official-score-v1`、数値計算スイートは `numerical-score-v1`。
 - 任意でトップレベルに `participant` を入れられる。複数提出する場合は同じ `participant` を使う。
 - `results` には公式slug `factorial`, `e-ladder`, `cold-memory`, `thermal-degrade`, `branching` が1件ずつある。
 - 各resultに `slug`, `correct`, `steps`, `assembly_lines`, `score.score`, `score.degraded_events` がある。
@@ -160,6 +163,14 @@ Discussionは設計メモ、解説、途中経過、別解の相談に使って�
 - `total_score` は `results[].score.score` の合計と一致する。
 
 `examples/challenges/baseline_submission.json` は、公式baselineの最小提出JSON例です。
+
+v0.1までのprovenance fieldを持たない提出も読み込み可能です。その場合は
+`challenge_schema_version=1`, `emulator_version=unknown`,
+`scoring_model=legacy-unversioned` として扱い、`compatibility_warning` を順位表へ
+明示します。旧提出を無効にはしませんが、scoreの意味が同一だと証明できないため、
+`suite` と `scoring_model` が同じ提出の中だけで順位を比較します。
+`--best-per-participant` もこの比較groupごとに1件を残し、異なるsuite/modelの提出を
+直接比較して片方を捨てることはありません。
 
 ## 部門案
 

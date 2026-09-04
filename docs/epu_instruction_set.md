@@ -7,6 +7,10 @@ EPUアセンブリは、E進ワード、Eメモリ、熱、観測、量子化を
 ebase spec --json
 ```
 
+全命令は、制御フロー命令を含めて、意味作用、発熱、冷却、期限フラグ、tick、
+イベント記録の共通ライフサイクルを通ります。Task Runtimeから実行する場合の
+owner/capability境界は [runtime_v0.md](runtime_v0.md) を参照してください。
+
 ## レジスタとメモリ
 
 - `ER0..ER15`: Eレジスタ。連続E桁、温度、量子化状態、分割数を持ちます。
@@ -16,10 +20,14 @@ ebase spec --json
 - `ARCHIVE`: 保存寄りの中温バンク。
 - `SACRED`: 低温・低guardのバンク。
 
-量子化に指定できる分割数は `3, 9, 27, 81, 243` のいずれかです。それ以外は
-`BAD_OPERAND` になります。温度が高いほど安全な最大分割数
+1つのEフィールドと1つのバンクは、それぞれ最大 `4096` cellです。`EALLOC` は
+この上限を超える要求を、cellやfieldを部分的に追加する前に `MEMORY_ERROR` で
+拒否します。
+
+量子化の分割候補は `3, 9, 27, 81, 243` です。温度が高いほど安全な最大分割数
 `q_max` が下がり、`degrade=allow` の場合は `DEGRADED` とともに低い分割へ落ちます。
-熱と精度低下の計算過程は [Behavior Model](behavior_model.md) を参照してください。
+これ以外の分割指定は `BAD_OPERAND` です。計算過程は
+[Behavior Model](behavior_model.md) を参照してください。
 
 ## 命令グループ
 
@@ -41,11 +49,14 @@ ebase spec --json
 
 ### Eメモリ
 
-- `EALLOC EPdst, bank, length ; mode=EWORD exponent_offset=0`: Eフィールドを確保します。v0エミュレーターでは
-  1フィールドは最大4096セル、1バンクは合計最大4096セルです。
+- `EALLOC EPdst, bank, length ; mode=EWORD exponent_offset=0`: Eフィールドを確保します。
 - `ELOAD ERdst, EPsrc`: EフィールドからEワードを復元します。
 - `ESTORE EPdst, ERsrc`: EワードをEフィールドへ格納します。
 - `EMODE target, mode`: レジスタまたはフィールドの解釈モードを変えます。
+
+有限floatとして表現できない値、非有限値、不正なE桁や対応指数範囲外のEワードは
+`NUMERIC_ERROR` です。構文・オペランド・分割数などの不正は `BAD_OPERAND`、
+field/bank容量やstore範囲の違反は `MEMORY_ERROR` として区別されます。
 
 ### 量子化と熱
 
@@ -54,6 +65,10 @@ ebase spec --json
 - `EDEQ ERdst, ERsrc`: 量子化代表値を連続値として読み戻します。
 - `ECLAMP ERtarget`: 現在の量子化代表値へ固定します。
 - `ETHERM name, target`: 温度、noise、`q_max`、分割数を出力します。
+- `ETRIT TRdst, ...`: balanced ternary lane列をTRレジスタへロードします。
+- `ETCMP TRdst, ERa, ERb`: E値をepsilon付きで比較し `-1/0/+1` を生成します。
+- `ETSEL ERdst, TRcond, ERneg, ERzero, ERpos`: trit符号でE値を選択します。
+- `ETEMP name`: 読み取り専用TEMP集約診断を出力します。
 - `EREFRESH target`: 正規化しつつ冷却・noise更新します。
 - `ESCRUB bank`: バンク内のフィールドをまとめてリフレッシュします。
 

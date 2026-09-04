@@ -59,7 +59,7 @@ python -m unittest discover -s tests
 
 - Playgroundでサンプルを選んで `Run` し、E桁、温度、観測イベントを眺める。
 - `Copy Program Link` で編集中のC-like/EPUコードをURLとして共有する。
-- ローカル版の `Run Suite` でチャレンジを実行し、`Copy JSON` で結果を共有する。
+- ローカル版の `Run Suite` で公式・数値計算チャレンジを実行し、`Copy JSON` で結果を共有する。
 - `examples/challenges/` のプログラムを変えて、より短い/冷たいEPUアセンブリを試す。
 - コンパイラや可視化を改造して、IssueやDiscussionで結果を見せる。
 
@@ -85,6 +85,8 @@ value = sum digit[k] * e^k
 - 温度、ガードバンド、安全分割数
 - 量子化、劣化、観測、リフレッシュ
 - 命令ごとの `timeline()` とWeb可視化
+- 主体・capability・E場ownerを持つTask Runtime
+- 全命令で共通の熱/冷却/tickライフサイクル
 
 ## Eならではの挙動
 
@@ -108,10 +110,12 @@ value = sum digit[k] * e^k
 ebase compile .\examples\challenges\factorial.cbase
 ebase run .\examples\challenges\factorial.cbase
 ebase run .\examples\challenges\thermal_quantization.epu --language asm --json
+ebase run .\examples\challenges\thermal_quantization.epu --language asm --principal observer --capability observe_continuous --json
 ebase samples
 ebase samples thermal-degrade --run --json
 ebase challenge
 ebase challenge --json
+ebase challenge --suite numerical --json
 ebase challenge thermal-degrade --json
 ebase challenge --assembly-dir .\generated-assembly --json
 ebase leaderboard .\examples\challenges\baseline_submission.json
@@ -172,7 +176,7 @@ Playgroundでは、左側にC風ソースまたはEPUアセンブリを書き、
 - 温度と安全分割数のタイムライン、命令スクラバー
 - 任意tick時点のレジスタ、Eフィールド、命令詳細
 - 命令種別ごとの実行プロファイル
-- 公式チャレンジ結果と提出用JSON
+- 公式・数値計算チャレンジ結果と提出用JSON
 
 ローカル開発用サーバなので、公開インターネットへ直接さらさないでください。公開ページとして見せる場合は
 GitHub Pages workflowで配る静的Playgroundを使えます。静的版は画面上に `static fallback` と表示され、
@@ -181,13 +185,17 @@ Pythonサーバなしでサンプル実行とチャレンジJSONの雰囲気を�
 ## コンパイラチャレンジ
 
 公式チャレンジは `ebase challenge` で実行します。現在の公式スイートは、
-CLIとPlaygroundで共有している組み込みサンプル5件です。
+CLIとPlaygroundで共有している組み込みサンプルは、公式5件と数値計算3件の計8件です。
 
 - `factorial`
 - `e-ladder`
 - `cold-memory`
 - `thermal-degrade`
 - `branching`
+
+数値計算スイートは `ebase challenge --suite numerical` で実行でき、
+`numerical-polynomial`、`numerical-cancellation`、`numerical-recurrence` の3件について
+精度、steps、温度、performance scoreを分けて記録します。
 
 `examples/challenges/` には、単体実行や説明用の課題ファイルも置いています。
 
@@ -221,28 +229,28 @@ ebase leaderboard .\examples\challenges\baseline_submission.json
 ```powershell
 python .\examples\compiler_starter\emit_baseline_assembly.py --output .\generated-assembly
 ebase challenge --assembly-dir .\generated-assembly --json
+python .\examples\compiler_starter\emit_baseline_assembly.py --suite numerical --output .\generated-numerical
+ebase challenge --suite numerical --assembly-dir .\generated-numerical --json
 ```
 
 提出前には、このJSONの `correct` が `true` であることを確認してください。
 
-数値計算部門では、多項式、桁落ち、反復計算について、誤差と決定論的な実行stepsを
-同時に測ります。
-
-```powershell
-ebase challenge --suite numerical --json
-ebase challenge --suite numerical --assembly-dir .\generated-assembly --json
-```
-
-参照値、許容誤差、順位規則は
+数値計算部門の参照値、許容誤差、順位規則は
 [docs/numerical_challenge.md](docs/numerical_challenge.md) を参照してください。
 
 ## テスト
 
 ```powershell
 python -m unittest discover -s tests
+python -m unittest tests.test_static_asm38_parity
+node .\scripts\static_conformance.cjs
+python .\scripts\publication_audit.py --full
 ```
 
-GitHub Actionsでも同じテストとデモを実行します。
+共通JSONコーパスはPython、local server、静的browser runtimeの離散状態と
+熱/数値許容誤差を照合します。GitHub Actionsでも同じ適合テストとデモを実行します。
+公開38命令のstatic ASM適合契約と `1e-9` のfloat許容誤差は
+[docs/static_asm_parity_v1.md](docs/static_asm_parity_v1.md) に記載しています。
 
 ## ファイル構成
 
@@ -251,13 +259,26 @@ GitHub Actionsでも同じテストとデモを実行します。
 - `src/emulator.py` - ラベル、分岐、停止、実行制限を持つ上位エミュレーター
 - `src/cstyle_compiler.py` - C風簡易言語からEPUアセンブリへのコンパイラ
 - `src/epu_cli.py` - CLI
+- `src/epu_runtime.py` - versioned Task Runtime、fresh/session境界、共通結果schema
 - `src/epu_scoring.py` - チャレンジ用スコアリング
 - `src/web_playground.py` - ローカルWeb Playgroundサーバ
 - `web/playground/` - Playground UI
+- `conformance/` - Python/server/static runtime共通のversioned JSONコーパス
 - `examples/` - デモとチャレンジ課題
 - `examples/compiler_starter/` - 外部コンパイラ参加用のbaseline `.epu` 生成スターター
 - `tests/` - 回帰テスト
 - `docs/` - 技術仕様、利用方法、チャレンジ説明
+
+Task Runtimeの権限表、schema、fresh/session契約は
+[docs/runtime_v0.md](docs/runtime_v0.md)、熱交換モデルと係数は
+[docs/thermal_models.md](docs/thermal_models.md)、実装済み/部分実装/未実装の境界は
+[docs/conformance_matrix.md](docs/conformance_matrix.md) を参照してください。
+三値レジスタと読み取り専用TEMP診断の契約は
+[docs/diagnostics_v1.md](docs/diagnostics_v1.md)、noise/healthの経年モデルは
+[docs/aging_models.md](docs/aging_models.md)、実行タイムラインの集約契約は
+[docs/execution_analysis_v1.md](docs/execution_analysis_v1.md)、全38命令の値メタデータ伝播は
+[docs/metadata_contract_v1.md](docs/metadata_contract_v1.md)、独立較正データセットとread-only残差評価は
+[docs/calibration_dataset_v1.md](docs/calibration_dataset_v1.md) にあります。
 
 貢献の入口は [CONTRIBUTING.md](CONTRIBUTING.md) と `.github/ISSUE_TEMPLATE/` を参照してください。
 変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。

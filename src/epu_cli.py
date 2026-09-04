@@ -20,8 +20,10 @@ from epu_challenge import (
 )
 from epu_experiments import get_experiment, list_experiments
 from epu_leaderboard import format_leaderboard_markdown, leaderboard_payload, load_leaderboard
+from epu_runtime import EPURuntime, RunRequest
 from epu_scoring import score_timeline
 from epu_spec import grouped_specs, spec_payload
+from epu_version import __version__
 
 
 EXAMPLE_SOURCE = """let n = 5;
@@ -38,6 +40,7 @@ print(acc);
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="ebase", description="E-base computer tools")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     compile_parser = subparsers.add_parser("compile", help="compile C-like source to EPU assembly")
@@ -49,6 +52,33 @@ def main(argv: Optional[list[str]] = None) -> int:
     run_parser.add_argument("--language", choices=["c", "asm"], default="c")
     run_parser.add_argument("--precision", type=int, default=8)
     run_parser.add_argument("--max-steps", type=int, default=10_000)
+    run_parser.add_argument("--principal", default="kernel")
+    run_parser.add_argument(
+        "--thermal-model",
+        choices=["simple", "simple-v0", "coupled", "coupled-v1"],
+        default="simple",
+    )
+    run_parser.add_argument(
+        "--aging-model",
+        choices=["simple", "simple-v0", "aging", "aging-v1"],
+        default="simple-v0",
+    )
+    run_parser.add_argument(
+        "--auto-refresh",
+        action="store_true",
+        help="refresh due registers and fields during the instruction cycle",
+    )
+    run_parser.add_argument(
+        "--observer-mode",
+        choices=["non_destructive", "destructive"],
+        default="non_destructive",
+    )
+    run_parser.add_argument(
+        "--capability",
+        action="append",
+        default=[],
+        help="grant one runtime capability; repeat for multiple capabilities",
+    )
     run_parser.add_argument("--json", action="store_true", help="emit JSON result")
 
     demo_parser = subparsers.add_parser("demo", help="print a starter C-like program")
@@ -101,20 +131,21 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         if args.command == "run":
             source = args.file.read_text(encoding="utf-8")
-            if args.language == "c":
-                compiled = CStyleCompiler(precision=args.precision).compile(source)
-                assembly = compiled.assembly
-            else:
-                assembly = source
-            emulator = EPUEmulator(max_steps=args.max_steps)
-            result = emulator.run(assembly)
-            payload = {
-                "output": result.output,
-                "halted": result.halted,
-                "steps": result.steps,
-                "pc": result.pc,
-                "score": score_timeline(emulator.epu.timeline()).to_dict(),
-            }
+            result = EPURuntime().run(
+                RunRequest(
+                    source=source,
+                    language=args.language,
+                    precision=args.precision,
+                    max_steps=args.max_steps,
+                    principal=args.principal,
+                    capabilities=frozenset(args.capability),
+                    thermal_model=args.thermal_model,
+                    aging_model=args.aging_model,
+                    auto_refresh=args.auto_refresh,
+                    observer_mode=args.observer_mode,
+                )
+            )
+            payload = result.to_dict()
             if args.json:
                 print(json.dumps(payload, indent=2, ensure_ascii=False))
             else:

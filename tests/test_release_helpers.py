@@ -98,22 +98,45 @@ class MakeReleaseBundleTests(unittest.TestCase):
             root.joinpath("private_materials", "worldbuilding", "history.md").write_text("private", encoding="utf-8")
             root.joinpath("src").mkdir()
             root.joinpath("src", "module.pyc").write_bytes(b"cache")
+            root.joinpath("src", "demo.egg-info").mkdir()
+            root.joinpath("src", "demo.egg-info", "PKG-INFO").write_text("stale", encoding="utf-8")
+            root.joinpath(".env").write_text("TOKEN=secret", encoding="utf-8")
+            root.joinpath(".env.local").write_text("TOKEN=secret", encoding="utf-8")
+            root.joinpath(".env.example").write_text("TOKEN=", encoding="utf-8")
+            root.joinpath("signing.key").write_text("secret", encoding="utf-8")
+            root.joinpath("conformance").mkdir()
+            root.joinpath("conformance", "runtime-v1.json").write_text("{}", encoding="utf-8")
+            root.joinpath("scripts").mkdir()
+            root.joinpath("scripts", "static_conformance.cjs").write_text("", encoding="utf-8")
 
             names = {path.relative_to(root).as_posix() for path in iter_bundle_files(root)}
 
             self.assertIn("README.md", names)
             self.assertIn(".github/workflows/tests.yml", names)
+            self.assertIn("conformance/runtime-v1.json", names)
+            self.assertIn("scripts/static_conformance.cjs", names)
             self.assertNotIn(".git/config", names)
             self.assertNotIn("dist/old.zip", names)
             self.assertNotIn("generated-assembly/factorial.epu", names)
             self.assertNotIn("private_materials/worldbuilding/history.md", names)
             self.assertNotIn("src/module.pyc", names)
+            self.assertNotIn("src/demo.egg-info/PKG-INFO", names)
+            self.assertNotIn(".env", names)
+            self.assertNotIn(".env.local", names)
+            self.assertNotIn("signing.key", names)
+            self.assertIn(".env.example", names)
 
     def test_should_exclude_internal_agent_artifacts(self) -> None:
         self.assertTrue(should_exclude(Path(".ai/audits/packet.json")))
         self.assertTrue(should_exclude(Path(".ai/fable-auditor/project-policy.json")))
         self.assertTrue(should_exclude(Path(".agents/config.json")))
+        self.assertTrue(should_exclude(Path(".codex/session.json")))
         self.assertTrue(should_exclude(Path("private_materials/worldbuilding/history.md")))
+        self.assertTrue(should_exclude(Path("src/e_base_computer.egg-info/PKG-INFO")))
+        self.assertTrue(should_exclude(Path(".env")))
+        self.assertTrue(should_exclude(Path(".env.production")))
+        self.assertTrue(should_exclude(Path("release-signing.pem")))
+        self.assertFalse(should_exclude(Path(".env.example")))
 
     def test_create_bundle_uses_clean_top_level_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

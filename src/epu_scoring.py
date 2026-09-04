@@ -40,6 +40,11 @@ def score_timeline(timeline: Iterable[Mapping[str, object]]) -> ProgramScore:
             degraded_events += 1
         if op in {"EREFRESH", "ESCRUB"}:
             refresh_events += 1
+        maintenance = event.get("maintenance", [])
+        if isinstance(maintenance, list):
+            refresh_events += sum(
+                1 for item in maintenance if str(item).startswith("auto_refresh:")
+            )
         if isinstance(after, Mapping):
             snapshot_temp = _snapshot_max_temperature(after)
             max_temperature = max(max_temperature, snapshot_temp)

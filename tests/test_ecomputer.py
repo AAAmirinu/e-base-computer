@@ -6,7 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ecomputer import EComputer, EWord, EWordError, e
+from ecomputer import MAX_EXPONENT, EComputer, EWord, EWordError, e
 
 
 class EWordTests(unittest.TestCase):
@@ -40,13 +40,18 @@ class EWordTests(unittest.TestCase):
 
         self.assertIn("EA =", output[0])
 
-    def test_rejects_non_finite_values(self) -> None:
+    def test_invalid_or_unrepresentable_values_raise_specific_error(self) -> None:
+        for value in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(value=value), self.assertRaises(EWordError):
+                EWord.from_real(value)
         with self.assertRaises(EWordError):
-            EWord.from_real(float("inf"))
-        with self.assertRaises(EWordError):
-            EWord.from_real(float("nan"))
+            EWord.from_digits({0: -1.0})
         with self.assertRaises(EWordError):
             EWord.from_digits({0: float("inf")})
+        with self.assertRaises(EWordError):
+            EWord.from_digits({MAX_EXPONENT + 1: 1.0})
+        with self.assertRaises(EWordError):
+            EWord.from_digits({MAX_EXPONENT: e - 0.1}).to_real()
 
 
 if __name__ == "__main__":

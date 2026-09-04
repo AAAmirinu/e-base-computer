@@ -1,0 +1,59 @@
+{
+  "$schema": "../../conformance/calibration-dataset-v1.schema.json",
+  "schema_version": 1,
+  "dataset_id": "epu-calibration-synthetic-fixture-v1",
+  "classification": "synthetic",
+  "provenance": {
+    "source_type": "synthetic",
+    "is_fixture": true,
+    "description": "Hand-authored synthetic targets for evaluator contract tests; not empirical measurements and not evidence of physical fidelity.",
+    "created_at": "2026-08-13T00:00:00Z",
+    "generator": "manual-test-fixture-v1",
+    "source_artifacts": []
+  },
+  "split_policy": {
+    "strategy": "fixed-case-labels",
+    "fit_allowed_on": ["train"],
+    "report_only": ["holdout"]
+  },
+  "cases": [
+    {
+      "case_id": "synthetic-register-train",
+      "split": "train",
+      "request": {
+        "source": "ECONST ER0, 1",
+        "language": "asm",
+        "fresh": true,
+        "thermal_model": "simple-v0",
+        "aging_model": "aging-v1"
+      },
+      "observations": [
+        {"observation_id": "train-er0-temperature", "target": {"kind": "register", "id": "ER0"}, "metric": "temperature", "observed": 0.014, "unit": "normalized_temperature"},
+        {"observation_id": "train-er0-noise", "target": {"kind": "register", "id": "ER0"}, "metric": "noise", "observed": 0.0000001, "unit": "normalized_noise"},
+        {"observation_id": "train-er0-health", "target": {"kind": "register", "id": "ER0"}, "metric": "health", "observed": 0.99999, "unit": "normalized_health"}
+      ]
+    },
+    {
+      "case_id": "synthetic-field-holdout",
+      "split": "holdout",
+      "request": {
+        "source": "EALLOC EP0, COLD, 1\nECONST ER0, 2\nESTORE EP0, ER0\nETEMP DIAG",
+        "language": "asm",
+        "fresh": true,
+        "thermal_model": "coupled-v1",
+        "aging_model": "aging-v1"
+      },
+      "observations": [
+        {"observation_id": "holdout-f0-temperature", "target": {"kind": "field", "id": "F0"}, "metric": "temperature", "observed": 0.052, "unit": "normalized_temperature"},
+        {"observation_id": "holdout-f0-noise", "target": {"kind": "field", "id": "F0"}, "metric": "noise", "observed": 0.0000003, "unit": "normalized_noise"},
+        {"observation_id": "holdout-f0-health", "target": {"kind": "field", "id": "F0"}, "metric": "health", "observed": 0.99998, "unit": "normalized_health"},
+        {"observation_id": "holdout-temp-aggregate", "target": {"kind": "temp"}, "metric": "temperature", "observed": 0.049, "unit": "normalized_temperature"}
+      ]
+    }
+  ],
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "json-sorted-utf8-v1",
+    "canonical_payload_sha256": "00e9ccb52cc0d74b5030afd630e810708d1130487f802c79ff8070e8afed743f"
+  }
+}

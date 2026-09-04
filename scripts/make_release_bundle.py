@@ -19,6 +19,7 @@ DEFAULT_TIMESTAMP = (2026, 1, 1, 0, 0, 0)
 EXCLUDED_DIRS = {
     ".agents",
     ".ai",
+    ".codex",
     ".git",
     ".mypy_cache",
     ".pytest_cache",
@@ -27,11 +28,13 @@ EXCLUDED_DIRS = {
     "__pycache__",
     "build",
     "dist",
+    "release-dist",
     "generated-assembly",
     "private_materials",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
-EXCLUDED_NAMES = {".DS_Store", "Thumbs.db"}
+SENSITIVE_SUFFIXES = {".key", ".p12", ".pem", ".pfx"}
+EXCLUDED_NAMES = {".DS_Store", ".env", "Thumbs.db"}
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -111,12 +114,13 @@ def iter_bundle_files(root: Path) -> Iterable[Path]:
 
 def should_exclude(relative: Path) -> bool:
     parts = relative.parts
-    if any(part in EXCLUDED_DIRS for part in parts):
+    if any(part in EXCLUDED_DIRS or part.endswith(".egg-info") for part in parts):
         return True
-    posix = relative.as_posix()
     if relative.name in EXCLUDED_NAMES:
         return True
-    return relative.suffix in EXCLUDED_SUFFIXES
+    if relative.name.startswith(".env.") and relative.name != ".env.example":
+        return True
+    return relative.suffix.lower() in EXCLUDED_SUFFIXES | SENSITIVE_SUFFIXES
 
 
 def create_bundle(root: Path, output: Path, files: Iterable[Path]) -> None:

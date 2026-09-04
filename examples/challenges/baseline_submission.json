@@ -1,15 +1,19 @@
 {
   "participant": "baseline",
+  "challenge_schema_version": 2,
+  "emulator_version": "0.2.0",
+  "suite": "official",
+  "scoring_model": "official-score-v1",
   "correct": true,
-  "total_score": 373.1,
+  "total_score": 366.6,
   "results": [
     {
       "slug": "factorial",
       "correct": true,
-      "steps": 58,
-      "assembly_lines": 21,
+      "steps": 56,
+      "assembly_lines": 19,
       "score": {
-        "score": 73.3,
+        "score": 70.7,
         "degraded_events": 0
       }
     },
@@ -39,17 +43,17 @@
       "steps": 98,
       "assembly_lines": 12,
       "score": {
-        "score": 233.5,
+        "score": 230.5,
         "degraded_events": 2
       }
     },
     {
       "slug": "branching",
       "correct": true,
-      "steps": 12,
-      "assembly_lines": 18,
+      "steps": 11,
+      "assembly_lines": 17,
       "score": {
-        "score": 25.4,
+        "score": 24.5,
         "degraded_events": 0
       }
     }

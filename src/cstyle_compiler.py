@@ -96,9 +96,16 @@ class CStyleCompiler:
             raise self._error(f"variable already declared: {name}")
         self._consume_value("=")
         value_reg, value_temp = self._expression()
-        target = self._reserve_variable(name)
-        self._emit(f"EMOV {target}, {value_reg}")
-        self._free_temp(value_reg, value_temp)
+        if value_temp:
+            # The initializer already owns a temporary E register.  Promote it
+            # to the variable instead of requiring a second register for an
+            # EMOV.  Besides emitting less heat, this makes all 16 architectural
+            # E registers usable by literal/expression declarations.
+            self._temp_registers.remove(value_reg)
+            self._symbols[name] = value_reg
+        else:
+            target = self._reserve_variable(name)
+            self._emit(f"EMOV {target}, {value_reg}")
         self._consume_value(";")
 
     def _assignment(self) -> None:
@@ -308,7 +315,7 @@ def run_source(source: str, precision: int = 8, max_steps: int = 10_000) -> Exec
 
 
 def _tokenize(source: str) -> List[Token]:
-    cleaned = _strip_comments(source)
+    cleaned = _strip_comments(source.lstrip("\ufeff"))
     pattern = re.compile(
         r"""
         (?P<NUMBER>\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)
@@ -332,7 +339,6 @@ def _tokenize(source: str) -> List[Token]:
 
 
 def _strip_comments(source: str) -> str:
-    source = source.lstrip("\ufeff")
     lines: List[str] = []
     for line in source.splitlines():
         if "//" in line:

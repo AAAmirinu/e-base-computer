@@ -1,9 +1,10 @@
-# C-like compiler
+# C風簡易コンパイラ
 
-`ebase compile` と Playground の C-like モードは、教育用の小さな C 風言語を
-EPU アセンブリへ変換します。Python や JavaScript を実行する機能ではありません。
+`src/cstyle_compiler.py` は、小さなC風言語を `EPUEmulator` 用のEPUアセンブリへ
+変換します。目的は、EPU命令を人間が直接書かなくても、変数、式、分岐、ループを
+含む小さなプログラムを動かせるようにすることです。
 
-## 使える構文
+## 対応する構文
 
 ```c
 let n = 5;
@@ -14,60 +15,85 @@ while (n > 1) {
     n = n - 1;
 }
 
-if (acc >= 120) {
-    print(acc);
-} else {
-    print(0);
-}
+print(acc);
 ```
 
-- 宣言: `let`, `float`, `double`, `e`
-- 代入: `name = expression;`
-- 出力: `print(expression);` または `observe(expression);`
-- 制御構文: `if/else`, `while`
-- 比較: `>`, `<`, `>=`, `<=`, `==`, `!=`
-- 式: 数値、変数、括弧、単項マイナス、`+`, `-`, `*`
-- コメント: 行末までの `//`
+宣言キーワードは `let`, `float`, `double`, `e` を同じ意味で扱います。
+式は数値リテラル、変数、括弧、単項マイナス、`+`, `-`, `*` に対応します。
+条件式は `>`, `<`, `>=`, `<=`, `==`, `!=` を使えます。
+行末までの `//` コメントと、UTF-8ファイル先頭のBOM (`U+FEFF`) も受理します。
 
-Windows のエディタが付与する UTF-8 BOM は先頭にあっても受け入れます。
+宣言の初期値が式から生成された一時レジスタにある場合、そのレジスタを変数へ
+昇格します。このため不要な `EMOV` と発熱を避け、16本のEレジスタすべてを
+変数として利用できます。17本目の同時生存変数は明示的なコンパイルエラーです。
 
-## 生成される EPU プログラム
+`print(expr);` と `observe(expr);` は、実行時に観測値を `OUT0`, `OUT1` ...
+へ順番に出力します。内部的には高級言語用の疑似命令 `EPRINT` を発行し、
+`EPUEmulator` が実行順の出力番号へ変換します。低レベルの既存命令
+`EOBS name, ERn ; precision=n` は従来どおり利用できます。
 
-`print(expr);` と `observe(expr);` は、実行時に観測値を `OUT0`, `OUT1` ... へ
-順番に出力します。コンパイラは高級言語用の疑似命令 `EPRINT` を出し、
-`EPUEmulator` が実行順の出力番号へ変換します。低レベルの
-`EOBS name, ERn ; precision=n` もアセンブリでは引き続き使えます。
+## エミュレーター拡張
 
-`EPUEmulator` は通常の EPU 命令に加え、ラベル、`EJMP`、条件分岐、`EHALT`、
-実行ステップ上限を扱います。E レジスタ、E メモリ、熱、量子化、スナップショット、
-イベント timeline は低レベル EPU と同じ規則で実行されます。
+`src/emulator.py` は既存の `EPU` の上に、次を追加します。
 
-## 使えない構文
+- ラベル `label:`
+- 無条件分岐 `EJMP label`
+- 条件分岐 `EJZ`, `EJNZ`, `EJGTZ`, `EJLTZ`, `EJGEZ`, `EJLEZ`
+- 停止命令 `EHALT`
+- 実行ステップ上限による無限ループ防止
+- C風言語向けの実行順出力 `EPRINT ERn ; precision=n`
 
-The C-like compiler is intentionally small. The following are **not supported**:
+低レベル命令はこれまで通り `EPU.step()` に委譲されるため、既存のEレジスタ、
+Eメモリ、熱モデル、量子化、スナップショット、イベントログはそのまま使われます。
 
-- 関数、配列、文字列、ポインタ、構造体
-- `for`, `do`, `switch`, `break`, `continue`, `return`
-- `/`, `%`, `++`, `--`, 論理演算子
-- 暗黙の変数宣言や同じ名前の再宣言
+## 実行例
 
-除算は現在の EPU 命令セットに含まれないため、コンパイルエラーになります。
-16 本の E レジスタを超える変数・中間値を必要とするプログラムもエラーになります。
+```powershell
+python .\examples\cstyle_demo.py
+```
 
-## エラーの読み方
+`python` が PATH にない環境では、ローカルのPython実行ファイルを直接指定します。
+
+```powershell
+py .\examples\cstyle_demo.py
+```
+
+テストは既存テストと合わせて次で実行します。
+
+```powershell
+python -m unittest discover -s tests
+```
+
+`tests/test_compiler_differential.py` は固定seedで入れ子の分岐・ループを生成し、
+コンパイラやEPUアセンブリを使わない独立オラクルと実行結果を比較します。
+
+## 対応外の構文とエラー
+
+このコンパイラはCそのものではありません。関数、配列、文字列、ポインタ、構造体、
+`for`, `do`, `switch`, `break`, `continue`, `return`、`/`, `%`, `++`, `--`、
+論理演算子には対応しません。暗黙の変数宣言と同名再宣言も許可しません。
+未知の文字、未宣言変数、対応外の演算子、終端の欠落、16本を超える同時生存変数は
+`CStyleCompileError` としてコンパイル時に拒否します。実行時の無限ループは
+`max_steps` により `EXECUTION_LIMIT` で停止します。
+
+括弧・単項演算子・ブロックを処理系の再帰上限まで深くネストした入力は、生の
+`RecursionError` を外へ漏らさず、`source nesting is too deep` という
+`CStyleCompileError` に変換します。
+
+主な診断は次のとおりです。
 
 - `unknown variable`: 宣言前の変数を使っています。
 - `out of E registers`: 変数または同時に必要な中間値が多すぎます。
-- `source nesting is too deep`: 括弧・単項演算子・ブロックのネストを浅くしてください。
-- `NUMERIC_ERROR`: 非有限値や Python の有限浮動小数点範囲を超える値を使っています。
-- `EXECUTION_LIMIT`: `while` が終わらないか、設定したステップ上限を超えました。
+- `source nesting is too deep`: 括弧・単項演算子・ブロックのネストが深すぎます。
+- `NUMERIC_ERROR`: 非有限値または有限浮動小数点範囲外の値です。
+- `EXECUTION_LIMIT`: `while` が終わらないか、設定したstep上限を超えました。
 
-コンパイル結果を確認するには次を使います。
+コンパイル結果と実行結果は次で確認できます。
 
 ```powershell
 ebase compile .\program.cbase
 ebase run .\program.cbase --json
 ```
 
-生成されたアセンブリは EPU の熱、量子化、観測の規則に従って実行されます。命令ごとの
-意味は [EPU instruction set](epu_instruction_set.md) を参照してください。
+生成assemblyはEPUの熱、量子化、観測規則に従います。命令ごとの意味は
+[EPU Instruction Set](epu_instruction_set.md) を参照してください。

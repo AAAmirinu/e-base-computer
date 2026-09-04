@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AAAmirinu/e-base-computer/raw/main/conformance/calibration-dataset-v1.schema.json",
+  "title": "E-base calibration dataset contract v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "dataset_id",
+    "classification",
+    "provenance",
+    "split_policy",
+    "cases",
+    "integrity"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "classification": {"enum": ["synthetic", "empirical"]},
+    "provenance": {
+      "type": "object",
+      "required": ["source_type", "description", "created_at", "source_artifacts"],
+      "properties": {
+        "source_type": {"enum": ["synthetic", "empirical"]},
+        "description": {"type": "string", "minLength": 1},
+        "created_at": {"type": "string", "minLength": 1},
+        "is_fixture": {"type": "boolean"},
+        "source_artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["uri", "sha256"],
+            "properties": {
+              "uri": {"type": "string", "minLength": 1},
+              "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "split_policy": {
+      "type": "object",
+      "required": ["strategy", "report_only"],
+      "properties": {
+        "strategy": {"const": "fixed-case-labels"},
+        "fit_allowed_on": {"type": "array", "items": {"const": "train"}},
+        "report_only": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"enum": ["validation", "holdout"]}
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["case_id", "split", "request", "observations"],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "split": {"enum": ["train", "validation", "holdout"]},
+          "request": {
+            "type": "object",
+            "required": ["source", "language", "fresh", "thermal_model", "aging_model"],
+            "properties": {
+              "source": {"type": "string"},
+              "language": {"enum": ["asm", "c", "cbase"]},
+              "fresh": {"const": true},
+              "thermal_model": {"type": "string", "minLength": 1},
+              "aging_model": {"type": "string", "minLength": 1}
+            }
+          },
+          "observations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["observation_id", "target", "metric", "observed", "unit"],
+              "properties": {
+                "observation_id": {"type": "string", "minLength": 1},
+                "target": {
+                  "type": "object",
+                  "required": ["kind"],
+                  "properties": {
+                    "kind": {"enum": ["register", "field", "temp"]},
+                    "id": {"type": "string", "minLength": 1}
+                  }
+                },
+                "metric": {"enum": ["temperature", "noise", "health"]},
+                "observed": {"type": "number"},
+                "uncertainty": {"type": "number", "minimum": 0},
+                "unit": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["algorithm", "canonicalization", "canonical_payload_sha256"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "canonicalization": {"const": "json-sorted-utf8-v1"},
+        "canonical_payload_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["classification"],
+        "properties": {"classification": {"const": "empirical"}}
+      },
+      "then": {
+        "properties": {
+          "cases": {
+            "items": {
+              "properties": {
+                "observations": {"items": {"required": ["uncertainty"]}}
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
