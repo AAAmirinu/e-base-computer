@@ -1,0 +1,87 @@
+{
+  "success": [
+    {
+      "name": "precedence_parentheses_unary_minus",
+      "precision": 12,
+      "source": "let a = 2;\nlet b = 3;\nlet c = 4;\nprint(-a + b * c - (a + b));\n"
+    },
+    {
+      "name": "aliases_assignment_and_print_order",
+      "precision": 8,
+      "source": "float a = 2;\ndouble b = a;\ne c = 3;\nb = b * c;\nobserve(a);\nprint(b);\nprint(c);\n"
+    },
+    {
+      "name": "while_and_nested_if_else",
+      "precision": 12,
+      "max_steps": 2000,
+      "source": "let n = 5;\nlet acc = 1;\nlet i = 0;\nwhile (i < n) {\n    if (i != 2) {\n        acc = acc + i * 3;\n    } else {\n        acc = acc - 4;\n    }\n    i = i + 1;\n}\nprint(acc);\nprint(i);\n"
+    },
+    {
+      "name": "comparison_gt",
+      "source": "if (3 > 2) { print(1); } else { print(0); }\n"
+    },
+    {
+      "name": "comparison_lt",
+      "source": "if (2 < 3) { print(1); } else { print(0); }\n"
+    },
+    {
+      "name": "comparison_ge",
+      "source": "if (3 >= 3) { print(1); } else { print(0); }\n"
+    },
+    {
+      "name": "comparison_le",
+      "source": "if (3 <= 3) { print(1); } else { print(0); }\n"
+    },
+    {
+      "name": "comparison_eq",
+      "source": "if (3 == 3) { print(1); } else { print(0); }\n"
+    },
+    {
+      "name": "comparison_ne",
+      "source": "if (3 != 2) { print(1); } else { print(0); }\n"
+    },
+    {
+      "name": "all_sixteen_registers",
+      "source": "let v0 = 0; let v1 = 1; let v2 = 2; let v3 = 3;\nlet v4 = 4; let v5 = 5; let v6 = 6; let v7 = 7;\nlet v8 = 8; let v9 = 9; let v10 = 10; let v11 = 11;\nlet v12 = 12; let v13 = 13; let v14 = 14; let v15 = 15;\nprint(v15);\n"
+    },
+    {
+      "name": "comments_and_scientific_literals",
+      "precision": 12,
+      "source": "// the tokenizer must discard this line\nlet x = 1.25e+2; // trailing comment\nprint(x);\n"
+    },
+    {
+      "name": "utf8_bom",
+      "source": "\ufefflet x = 2;\nprint(x);\n"
+    }
+  ],
+  "errors": [
+    {
+      "name": "register_exhaustion",
+      "source": "let v0=0; let v1=1; let v2=2; let v3=3; let v4=4; let v5=5; let v6=6; let v7=7; let v8=8; let v9=9; let v10=10; let v11=11; let v12=12; let v13=13; let v14=14; let v15=15; let v16=16;\n"
+    },
+    {
+      "name": "unknown_variable",
+      "source": "print(missing);\n"
+    },
+    {
+      "name": "duplicate_declaration",
+      "source": "let x = 1; let x = 2;\n"
+    },
+    {
+      "name": "unsupported_division",
+      "source": "print(1 / 2);\n"
+    },
+    {
+      "name": "unexpected_character",
+      "source": "let x = @;\n"
+    },
+    {
+      "name": "missing_semicolon",
+      "source": "let x = 1\n"
+    },
+    {
+      "name": "unterminated_block",
+      "source": "if (1) { print(1);\n"
+    }
+  ]
+}

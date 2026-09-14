@@ -290,7 +290,7 @@ function renderPayload(payload) {
 
 function renderChallenge(payload) {
   const results = Array.isArray(payload.results) ? payload.results : [];
-  const staticDemo = Boolean(payload.static_fallback);
+  const staticDemo = Boolean(payload.demo_only || payload.static_fallback);
   const suite = payload.suite || challengeSuiteSelect.value;
   challengeStatus.textContent = staticDemo
     ? `demo ${suite} correct=${payload.correct} score=${payload.total_score}`

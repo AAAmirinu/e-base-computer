@@ -29,6 +29,15 @@ jobs:
       - uses: actions/configure-pages@v5
       - name: Smoke static playground
         run: node scripts/static_playground_smoke.cjs
+      - name: Cross-runtime conformance
+        run: node scripts/static_conformance.cjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Cross-runtime C compiler parity
+        run: python -m unittest tests.test_static_c_parity
+      - name: Cross-runtime 38-opcode ASM parity
+        run: python -m unittest tests.test_static_asm38_parity
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/playground

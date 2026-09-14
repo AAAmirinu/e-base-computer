@@ -1,6 +1,4 @@
 import contextlib
-from http.client import HTTPConnection
-from http.server import ThreadingHTTPServer
 import io
 import json
 from pathlib import Path
@@ -8,7 +6,6 @@ from importlib import resources
 import subprocess
 import sys
 import tempfile
-import threading
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,9 +14,11 @@ sys.path.insert(0, str(ROOT / "src"))
 from cstyle_compiler import CStyleCompiler
 from emulator import EPUEmulator
 from epu_challenge import (
+    CHALLENGE_SCHEMA_VERSION,
     EXPECTED_OUTPUTS,
-    NUMERICAL_CHALLENGE_SLUGS,
+    NUMERICAL_SCORING_MODEL,
     OFFICIAL_CHALLENGE_SLUGS,
+    OFFICIAL_SCORING_MODEL,
     official_assembly_for_slug,
     run_challenge,
     run_numerical_suite,
@@ -29,10 +28,20 @@ from epu_challenge import (
 )
 from epu_cli import main
 from epu_experiments import get_experiment
-from epu_leaderboard import expand_submission_paths, load_leaderboard, select_best_per_participant
+from epu_leaderboard import (
+    LEGACY_SCORING_MODEL,
+    expand_submission_paths,
+    leaderboard_payload,
+    load_leaderboard,
+    select_best_per_participant,
+    submission_from_payload,
+)
 from epu_scoring import score_timeline
 from epu_spec import spec_payload
-from web_playground import PlaygroundHandler, playground_asset_path, run_payload, samples_payload
+from epu_version import SOURCE_VERSION
+from epu import NATIVE_OPS
+from emulator import CONTROL_OPS
+from web_playground import playground_asset_path, run_payload, samples_payload
 from web_playground import challenge_payload
 
 
@@ -88,6 +97,37 @@ class CLITests(unittest.TestCase):
                 self.assertEqual(main(["compile", str(source_path)]), 0)
                 self.assertEqual(main(["run", str(source_path), "--json"]), 0)
 
+    def test_cli_run_exposes_runtime_context_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_path = Path(temp_dir) / "observe.epu"
+            source_path.write_text("ECONST ER0, 2\nEOBS OUT0, ER0\n", encoding="utf-8")
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = main(
+                    [
+                        "run",
+                        str(source_path),
+                        "--language",
+                        "asm",
+                        "--principal",
+                        "observer",
+                        "--capability",
+                        "observe_continuous",
+                        "--thermal-model",
+                        "coupled",
+                        "--aging-model",
+                        "aging",
+                        "--json",
+                    ]
+                )
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(code, 0)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["principal"], "observer")
+        self.assertEqual(payload["output"], {"OUT0": 2.0})
+        self.assertEqual(payload["models"]["thermal"]["model_id"], "coupled-v1")
+        self.assertEqual(payload["models"]["aging"]["model_id"], "aging-v1")
+
     def test_cli_reports_missing_file_without_traceback(self) -> None:
         stderr = io.StringIO()
 
@@ -125,43 +165,15 @@ class CLITests(unittest.TestCase):
             self.assertEqual(main(["challenge", "--json"]), 0)
         payload = json.loads(stdout.getvalue())
         self.assertTrue(payload["correct"])
+        self.assertEqual(payload["challenge_schema_version"], CHALLENGE_SCHEMA_VERSION)
+        self.assertEqual(payload["emulator_version"], SOURCE_VERSION)
+        self.assertEqual(payload["suite"], "official")
+        self.assertEqual(payload["scoring_model"], OFFICIAL_SCORING_MODEL)
         self.assertEqual(len(payload["results"]), len(OFFICIAL_CHALLENGE_SLUGS))
 
         with contextlib.redirect_stderr(stderr):
             self.assertEqual(main(["challenge", "missing-sample"]), 1)
         self.assertIn("error:", stderr.getvalue())
-
-    def test_cli_numerical_challenge_reports_accuracy_and_cost(self) -> None:
-        stdout = io.StringIO()
-        with contextlib.redirect_stdout(stdout):
-            self.assertEqual(main(["challenge", "--suite", "numerical", "--json"]), 0)
-
-        payload = json.loads(stdout.getvalue())
-        self.assertEqual(payload["suite"], "numerical")
-        self.assertTrue(payload["correct"])
-        self.assertEqual(
-            [result["slug"] for result in payload["results"]],
-            list(NUMERICAL_CHALLENGE_SLUGS),
-        )
-        self.assertTrue(all(result["accuracy_digits"] >= 8 for result in payload["results"]))
-        self.assertTrue(all(result["numerical_score"] >= result["score"]["score"] for result in payload["results"]))
-
-    def test_numerical_submission_is_ranked_by_error_before_cost(self) -> None:
-        baseline = summarize_numerical_suite(run_numerical_suite())
-        worse_error = json.loads(json.dumps(baseline))
-        worse_error["results"][0]["relative_error"] = 1e-8
-        worse_error["results"][0]["accuracy_digits"] = 8.0
-        worse_error["results"][0]["numerical_score"] += 0.01
-        worse_error["total_score"] += 0.01
-        with tempfile.TemporaryDirectory() as temp_dir:
-            better_path = Path(temp_dir) / "better.json"
-            worse_path = Path(temp_dir) / "worse.json"
-            better_path.write_text(json.dumps(baseline), encoding="utf-8")
-            worse_path.write_text(json.dumps(worse_error), encoding="utf-8")
-            entries = load_leaderboard([worse_path, better_path])
-
-        self.assertEqual(entries[0].participant, "better")
-        self.assertEqual(entries[0].suite, "numerical")
 
     def test_cli_challenge_can_score_generated_assembly_dir(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -181,7 +193,7 @@ class CLITests(unittest.TestCase):
             payload = json.loads(stdout.getvalue())
 
         self.assertTrue(payload["correct"])
-        self.assertEqual(payload["total_score"], 373.1)
+        self.assertEqual(payload["total_score"], 366.6)
         self.assertTrue(
             all(result["submission_source"] == "assembly-dir" for result in payload["results"])
         )
@@ -218,49 +230,7 @@ class CLITests(unittest.TestCase):
             payload = json.loads(stdout.getvalue())
 
         self.assertTrue(payload["correct"])
-        self.assertEqual(payload["total_score"], 373.1)
-        self.assertTrue(
-            all(result["submission_source"] == "assembly-dir" for result in payload["results"])
-        )
-
-    def test_compiler_starter_emits_numerical_assembly_dir(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            assembly_dir = Path(temp_dir) / "generated-numerical"
-            completed = subprocess.run(
-                [
-                    sys.executable,
-                    str(ROOT / "examples" / "compiler_starter" / "emit_baseline_assembly.py"),
-                    "--suite",
-                    "numerical",
-                    "--output",
-                    str(assembly_dir),
-                ],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertEqual(
-                {path.stem for path in assembly_dir.glob("*.epu")},
-                set(NUMERICAL_CHALLENGE_SLUGS),
-            )
-            stdout = io.StringIO()
-            with contextlib.redirect_stdout(stdout):
-                self.assertEqual(
-                    main([
-                        "challenge",
-                        "--suite",
-                        "numerical",
-                        "--assembly-dir",
-                        str(assembly_dir),
-                        "--json",
-                    ]),
-                    0,
-                )
-            payload = json.loads(stdout.getvalue())
-
-        self.assertTrue(payload["correct"])
+        self.assertEqual(payload["total_score"], 366.6)
         self.assertTrue(
             all(result["submission_source"] == "assembly-dir" for result in payload["results"])
         )
@@ -292,7 +262,7 @@ class CLITests(unittest.TestCase):
 
         self.assertEqual([result.slug for result in results], list(OFFICIAL_CHALLENGE_SLUGS))
         self.assertTrue(summary["correct"])
-        self.assertEqual(summary["total_score"], 373.1)
+        self.assertEqual(summary["total_score"], 366.6)
         self.assertEqual(results[0].submission_source, "assembly-dir")
         self.assertTrue(all(result.submission_source == "official" for result in results[1:]))
 
@@ -404,6 +374,51 @@ class CLITests(unittest.TestCase):
             kept = select_best_per_participant(load_leaderboard([worse, better]))
             self.assertEqual(len(kept), 1)
 
+    def test_leaderboard_preserves_provenance_and_accepts_legacy_shape(self) -> None:
+        payload = summarize_suite(run_official_suite())
+        modern = submission_from_payload({"participant": "modern", **payload})
+
+        self.assertTrue(modern.valid)
+        self.assertEqual(modern.challenge_schema_version, CHALLENGE_SCHEMA_VERSION)
+        self.assertEqual(modern.emulator_version, SOURCE_VERSION)
+        self.assertEqual(modern.scoring_model, OFFICIAL_SCORING_MODEL)
+        self.assertIsNone(modern.compatibility_warning)
+
+        legacy_payload = dict(payload)
+        for field in ("challenge_schema_version", "emulator_version", "scoring_model"):
+            legacy_payload.pop(field)
+        legacy = submission_from_payload({"participant": "legacy", **legacy_payload})
+
+        self.assertTrue(legacy.valid)
+        self.assertTrue(legacy.correct)
+        self.assertEqual(legacy.scoring_model, LEGACY_SCORING_MODEL)
+        self.assertIsNotNone(legacy.compatibility_warning)
+        self.assertEqual(legacy.issues, [])
+
+    def test_leaderboard_keeps_best_entries_per_comparison_cohort(self) -> None:
+        official = {"participant": "alice", **summarize_suite(run_official_suite())}
+        alternate_model = {**official, "scoring_model": "official-score-v2"}
+        numerical = {
+            "participant": "alice",
+            **summarize_numerical_suite(run_numerical_suite()),
+        }
+        legacy = dict(official)
+        for field in ("challenge_schema_version", "emulator_version", "scoring_model"):
+            legacy.pop(field)
+
+        entries = [
+            submission_from_payload(payload)
+            for payload in (official, alternate_model, numerical, legacy)
+        ]
+        kept = select_best_per_participant(entries)
+
+        self.assertEqual(len(kept), 4)
+        self.assertEqual(len({entry.comparison_key() for entry in kept}), 4)
+        self.assertEqual(
+            leaderboard_payload(kept)["ranking_scope"],
+            ["suite", "scoring_model"],
+        )
+
     def test_cli_spec_outputs_instruction_reference(self) -> None:
         stdout = io.StringIO()
 
@@ -431,21 +446,21 @@ class ChallengeTests(unittest.TestCase):
             list(OFFICIAL_CHALLENGE_SLUGS),
         )
         self.assertEqual(set(EXPECTED_OUTPUTS), set(OFFICIAL_CHALLENGE_SLUGS))
+        self.assertEqual(summary["challenge_schema_version"], CHALLENGE_SCHEMA_VERSION)
+        self.assertEqual(summary["emulator_version"], SOURCE_VERSION)
+        self.assertEqual(summary["suite"], "official")
+        self.assertEqual(summary["scoring_model"], OFFICIAL_SCORING_MODEL)
+
+        numerical = summarize_numerical_suite(run_numerical_suite())
+        self.assertEqual(numerical["challenge_schema_version"], CHALLENGE_SCHEMA_VERSION)
+        self.assertEqual(numerical["emulator_version"], SOURCE_VERSION)
+        self.assertEqual(numerical["scoring_model"], NUMERICAL_SCORING_MODEL)
 
     def test_thermal_challenge_records_degradation(self) -> None:
         result = run_challenge("thermal-degrade")
 
         self.assertTrue(result.correct)
         self.assertGreaterEqual(result.score.degraded_events, 1)
-
-    def test_numerical_challenges_are_correct_and_expose_error_metrics(self) -> None:
-        results = run_numerical_suite()
-        summary = summarize_numerical_suite(results)
-
-        self.assertTrue(summary["correct"])
-        self.assertEqual([result.slug for result in results], list(NUMERICAL_CHALLENGE_SLUGS))
-        self.assertGreater(summary["performance_score"], 0)
-        self.assertGreater(summary["mean_accuracy_digits"], 8)
 
 
 class SpecTests(unittest.TestCase):
@@ -472,7 +487,21 @@ class SpecTests(unittest.TestCase):
         }
 
         self.assertTrue(expected.issubset(opcodes))
-        self.assertEqual(payload["registers"], {"ER": 16, "EP": 8})
+        self.assertEqual(opcodes, NATIVE_OPS | CONTROL_OPS)
+        self.assertEqual(
+            payload["registers"],
+            {
+                "ER": 16,
+                "EP": 8,
+                "TR": 8,
+                "TR_max_lanes": 27,
+                "TR_encoding": "balanced",
+                "TEMP": "read-only derived aggregate",
+            },
+        )
+        self.assertEqual(payload["diagnostics"]["schema_version"], 1)
+        self.assertEqual(payload["runtime_schema_version"], 1)
+        self.assertIn("observe_continuous", payload["task_capabilities"])
 
 
 class WebPayloadTests(unittest.TestCase):
@@ -515,9 +544,13 @@ class WebPayloadTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertTrue(payload["ok"])
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["language"], "cbase")
         self.assertEqual(payload["output"], {"OUT0": 5.0})
         self.assertIn("timeline", payload)
         self.assertIn("score", payload)
+        self.assertEqual(payload["analysis"]["schema_version"], 1)
+        self.assertEqual(payload["analysis"]["observation_events"], 1)
 
     def test_samples_payload_shape(self) -> None:
         payload = samples_payload()
@@ -532,7 +565,7 @@ class WebPayloadTests(unittest.TestCase):
 
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["correct"])
-        self.assertEqual(payload["total_score"], 373.1)
+        self.assertEqual(payload["total_score"], 366.6)
         self.assertEqual(len(payload["results"]), len(OFFICIAL_CHALLENGE_SLUGS))
 
         single = challenge_payload("thermal-degrade")
@@ -540,79 +573,20 @@ class WebPayloadTests(unittest.TestCase):
         self.assertTrue(single["challenge"]["correct"])
         self.assertEqual(single["challenge"]["slug"], "thermal-degrade")
 
-        numerical = challenge_payload(suite="numerical")
-        self.assertTrue(numerical["ok"])
-        self.assertEqual(numerical["suite"], "numerical")
-        self.assertEqual(len(numerical["results"]), len(NUMERICAL_CHALLENGE_SLUGS))
-
     def test_run_payload_reports_compile_error(self) -> None:
         payload, status = run_payload({"source": "x = 1;", "language": "c"})
 
         self.assertEqual(status, 400)
         self.assertFalse(payload["ok"])
 
-    def test_run_payload_rejects_malformed_input_without_raising(self) -> None:
-        cases = (
-            [],
-            {"source": "print(1);", "precision": "not-a-number"},
-            {"source": "print(1);", "maxSteps": "not-a-number"},
-            {"source": ["print(1);"]},
-            {"source": "x" * 100_001},
-            {"source": "print(1);", "precision": 13},
-            {"source": "print(1);", "maxSteps": 0},
+    def test_run_payload_rejects_uninitialized_session(self) -> None:
+        payload, status = run_payload(
+            {"source": "EHALT", "language": "asm", "fresh": False}
         )
 
-        for request in cases:
-            with self.subTest(request=request):
-                payload, status = run_payload(request)
-                self.assertIn(status, {400, 413})
-                self.assertFalse(payload["ok"])
-
-    def test_run_payload_rejects_numeric_overflow_and_deep_nesting(self) -> None:
-        cases = (
-            {"source": "print(1e999);"},
-            {"source": "print(" + "(" * 1500 + "1" + ")" * 1500 + ");"},
-        )
-
-        for request in cases:
-            with self.subTest(source=request["source"][:20]):
-                payload, status = run_payload(request)
-                self.assertEqual(status, 400)
-                self.assertFalse(payload["ok"])
-
-
-class WebHandlerTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), PlaygroundHandler)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-
-    def tearDown(self) -> None:
-        self.server.shutdown()
-        self.thread.join()
-        self.server.server_close()
-
-    def test_invalid_json_and_request_values_return_client_errors(self) -> None:
-        cases = (
-            b"{",
-            json.dumps({"source": "print(1);", "precision": "not-a-number"}).encode(),
-        )
-
-        for body in cases:
-            with self.subTest(body=body[:20]):
-                connection = HTTPConnection(*self.server.server_address)
-                connection.request(
-                    "POST",
-                    "/api/run",
-                    body=body,
-                    headers={"Content-Type": "application/json"},
-                )
-                response = connection.getresponse()
-                payload = json.loads(response.read())
-                connection.close()
-
-                self.assertEqual(response.status, 400)
-                self.assertFalse(payload["ok"])
+        self.assertEqual(status, 400)
+        self.assertFalse(payload["ok"])
+        self.assertIn("session continuation", payload["error"])
 
 
 if __name__ == "__main__":

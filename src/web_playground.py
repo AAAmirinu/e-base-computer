@@ -11,8 +11,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
-from cstyle_compiler import CStyleCompileError, CStyleCompiler
-from emulator import EPUEmulator
+from cstyle_compiler import CStyleCompileError
 from epu import EPUError
 from epu_challenge import (
     run_challenge,
@@ -22,7 +21,8 @@ from epu_challenge import (
     summarize_suite,
 )
 from epu_experiments import list_experiments
-from epu_scoring import score_timeline
+from epu_runtime import EPURuntime, RunRequest
+from epu_version import __version__
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,7 +43,7 @@ def playground_asset_path(name: str) -> Path:
 
 
 class PlaygroundHandler(BaseHTTPRequestHandler):
-    server_version = "EBasePlayground/0.1"
+    server_version = f"EBasePlayground/{__version__}"
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -136,7 +136,7 @@ def run_payload(request: Any) -> Tuple[Dict[str, Any], int]:
 
     try:
         precision = int(request.get("precision", 8))
-        max_steps = int(request.get("maxSteps", 10_000))
+        max_steps = int(request.get("max_steps", request.get("maxSteps", 10_000)))
     except (TypeError, ValueError):
         return {"ok": False, "error": "precision and maxSteps must be integers"}, 400
     if not 0 <= precision <= MAX_WEB_PRECISION:
@@ -150,31 +150,14 @@ def run_payload(request: Any) -> Tuple[Dict[str, Any], int]:
             "error": f"maxSteps must be between 1 and {MAX_WEB_STEPS}",
         }, 400
 
+    normalized_request = dict(request)
+    normalized_request["precision"] = precision
+    normalized_request["max_steps"] = max_steps
     try:
-        if language == "c":
-            compiled = CStyleCompiler(precision=precision).compile(source)
-            assembly = compiled.assembly
-            symbols = compiled.symbols
-        elif language == "asm":
-            assembly = source
-            symbols = {}
-        else:
-            return {"ok": False, "error": f"unknown language: {language}"}, 400
-        emulator = EPUEmulator(max_steps=max_steps)
-        result = emulator.run(assembly)
-        timeline = emulator.epu.timeline()
-        return {
-            "ok": True,
-            "assembly": assembly,
-            "symbols": symbols,
-            "output": result.output,
-            "halted": result.halted,
-            "steps": result.steps,
-            "pc": result.pc,
-            "score": score_timeline(timeline).to_dict(),
-            "timeline": timeline,
-            "snapshot": emulator.epu.visual_snapshot(),
-        }, 200
+        result = EPURuntime().run(RunRequest.from_dict(normalized_request))
+        return {"ok": True, **result.to_dict()}, 200
+    except RecursionError:
+        return {"ok": False, "error": "source nesting is too deep"}, 400
     except (CStyleCompileError, EPUError, ValueError) as exc:
         return {"ok": False, "error": str(exc)}, 400
 

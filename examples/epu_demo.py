@@ -15,7 +15,8 @@ ENORM ER2
 ESHIFT ER3, ER2, 1
 EOBS OUT_PRODUCT_E, ER3 ; precision=8
 
-EALLOC EP0, COLD, 4 ; mode=EWORD
+; The shifted product includes exponent 4, so reserve exponents 0 through 4.
+EALLOC EP0, COLD, 5 ; mode=EWORD
 ESTORE EP0, ER3
 ELOAD ER4, EP0
 EQUANT ER5, ER4, 27

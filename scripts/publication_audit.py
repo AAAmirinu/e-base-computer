@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,8 +15,14 @@ from typing import Callable, Iterable, List
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-EXPECTED_TOTAL_SCORE = 373.1
+EXPECTED_TOTAL_SCORE = 366.6
 EXPECTED_CHALLENGES = {"factorial", "e-ladder", "cold-memory", "thermal-degrade", "branching"}
+EXPECTED_NUMERICAL_TOTAL_SCORE = 302.304481
+EXPECTED_NUMERICAL_CHALLENGES = {
+    "numerical-polynomial",
+    "numerical-cancellation",
+    "numerical-recurrence",
+}
 
 
 class Audit:
@@ -91,22 +98,41 @@ def check_required_files(audit: Audit) -> None:
         ".github/ISSUE_TEMPLATE/compiler_challenge.md",
         ".github/ISSUE_TEMPLATE/good_first_experiment.md",
         "docs/compiler_challenge.md",
-        "docs/numerical_challenge.md",
-        "docs/behavior_model.md",
         "docs/cstyle_compiler.md",
+        "docs/behavior_model.md",
         "docs/e_word_model.md",
         "docs/epu_instruction_set.md",
         "docs/epu_spec.md",
         "docs/playground.md",
+        "docs/runtime_v0.md",
+        "docs/thermal_models.md",
+        "docs/aging_models.md",
+        "docs/diagnostics_v1.md",
+        "docs/execution_analysis_v1.md",
+        "docs/metadata_contract_v1.md",
+        "docs/static_asm_parity_v1.md",
+        "docs/calibration_dataset_v1.md",
+        "docs/conformance_matrix.md",
         "docs/release_notes_v0_1.md",
+        "docs/release_notes_v0_2.md",
         "docs/assets/playground-challenge.png",
         "examples/compiler_starter/README.md",
         "examples/compiler_starter/emit_baseline_assembly.py",
         "examples/challenges/baseline_submission.json",
         "scripts/finalize_project_urls.py",
         "scripts/make_release_bundle.py",
+        "scripts/verify_release.py",
         "scripts/release_smoke.py",
+        "scripts/evaluate_calibration.py",
+        "scripts/static_c_parity_runner.cjs",
+        "scripts/static_asm38_parity_runner.cjs",
+        "scripts/static_conformance.cjs",
         "scripts/static_playground_smoke.cjs",
+        "tests/data/cstyle_cross_runtime_corpus.json",
+        "tests/data/asm38_cross_runtime_corpus.json",
+        "tests/data/calibration_synthetic_v1.json",
+        "conformance/runtime-v1.json",
+        "conformance/calibration-dataset-v1.schema.json",
     ]
     for name in required:
         path = ROOT / name
@@ -146,17 +172,18 @@ def check_public_docs(audit: Audit) -> None:
             "GitHub Codespaces",
             "GitHub Pages",
             "Run Suite",
-            "Eならではの挙動",
-            "docs/behavior_model.md",
             "Copy Program Link",
             "ebase challenge --json",
+            "ebase challenge --suite numerical --json",
             "ebase challenge --assembly-dir",
-            "ebase challenge --suite numerical",
             "emit_baseline_assembly.py",
             "ebase leaderboard",
             "Issues` -> `New issue` -> `Compiler challenge entry",
             "TECHNICAL_SCOPE.md",
             "TRADEMARKS.md",
+            "Eならではの挙動",
+            "docs/behavior_model.md",
+            "docs/numerical_challenge.md",
         ],
     )
     audit.require_text(ROOT / "LICENSE", ["Apache License", "Version 2.0"])
@@ -164,55 +191,99 @@ def check_public_docs(audit: Audit) -> None:
     audit.require_text(ROOT / "TRADEMARKS.md", ["permission to use these names", "distinct project name"])
     audit.require_text(
         ROOT / "TECHNICAL_SCOPE.md",
-        [
-            "technical E-base Computer implementation",
-            "deterministic behavior models",
-            "docs/behavior_model.md",
-            "not licensed by this repository",
-        ],
-    )
-    audit.require_text(ROOT / "docs" / "e_word_model.md", ["value = sign * sum", "authoritative"])
-    audit.require_text(
-        ROOT / "docs" / "behavior_model.md",
-        [
-            "effective_guard(T)",
-            "THERMAL_PRECISION_ERROR",
-            "T_refreshed",
-            "degraded_events * 40",
-            "authoritative runtime",
-        ],
+        ["technical E-base Computer implementation", "deterministic behavior models", "not licensed by this repository", "runtime contract remains outside this repository"],
     )
     audit.require_text(
-        ROOT / "docs" / "compiler_challenge.md",
-        ["total_score=373.1", "参加者ワークフロー", "--assembly-dir", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "変更してはいけないもの", "タイブレーク", "--suite numerical", "Issues` -> `New issue` -> `Compiler challenge entry"],
+        ROOT / "SECURITY.md",
+        ["Report a vulnerability", "Private Vulnerability Reporting"],
     )
     audit.require_text(
-        ROOT / "docs" / "numerical_challenge.md",
-        ["binary64", "relative_error", "accuracy_digits", "5e-8", "numerical_score", "合計steps"],
+        ROOT / "docs" / "e_word_model.md",
+        ["value = sign * sum", "authoritative", "behavior_model.md"],
     )
     audit.require_text(
         ROOT / "docs" / "cstyle_compiler.md",
-        ["C-like compiler", "not supported", "source nesting is too deep"],
+        ["UTF-8ファイル先頭のBOM", "CStyleCompileError", "source nesting is too deep", "out of E registers", "NUMERIC_ERROR", "EXECUTION_LIMIT", "ebase compile"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "behavior_model.md",
+        ["v0.2", "共通cycle", "coupled-v1", "aging-v1", "最大4096", "約 `1.995`", "OBSERVATION_DIRTY", "T_refreshed = max(0, 0.45 * T - 0.02)", "noise = guard_band * (1 + T_refreshed)", "命令配置", "official-score-v1"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "compiler_challenge.md",
+        ["total_score=366.6", "参加者ワークフロー", "--assembly-dir", "--suite numerical", "emit_baseline_assembly.py", "factorial.epu", "submission_source", "challenge_schema_version=2", "official-score-v1", "numerical-score-v1", "legacy-unversioned", "compatibility_warning", "変更してはいけないもの", "タイブレーク", "Issues` -> `New issue` -> `Compiler challenge entry"],
     )
     audit.require_text(
         ROOT / "CHANGELOG.md",
-        ["0.1.0", "Initial Public Preview", "ebase spec", "ebase leaderboard", "Copy Program Link", "373.1"],
+        ["0.2.0 - 2026-09-04", "coupled-v1", "aging-v1", "38 opcodes", "numerical compiler challenge", "366.6", "0.1.0", "Initial Public Preview"],
     )
     audit.require_text(
         ROOT / "docs" / "release_notes_v0_1.md",
         ["E-base Computer v0.1.0", "Run Official Suite", "Good First Contributions", "Known Limits", "Static GitHub Pages", "Copy Program Link", "ebase leaderboard"],
     )
     audit.require_text(
+        ROOT / "docs" / "release_notes_v0_2.md",
+        ["E-base Computer v0.2.0", "coupled-v1", "aging-v1", "all 38 opcodes", "Existing Experience Preserved", "--suite numerical", "366.6", "challenge_schema_version=2", "official-score-v1", "legacy-unversioned", "SHA256SUMS.txt", "synthetic"],
+    )
+    audit.require_text(
         ROOT / "docs" / "epu_instruction_set.md",
-        ["ebase spec --json", "EQUANT", "DEGRADED", "EJGTZ", "BAD_OPERAND", "behavior_model.md"],
+        ["ebase spec --json", "EQUANT", "DEGRADED", "EJGTZ", "Behavior Model", "最大 `4096`", "NUMERIC_ERROR", "MEMORY_ERROR"],
+    )
+    audit.require_text(
+        ROOT / "src" / "ecomputer.py",
+        ["class EWordError", "MIN_EXPONENT = -745", "MAX_EXPONENT = 709"],
+    )
+    audit.require_text(
+        ROOT / "src" / "epu.py",
+        ["MAX_FIELD_CELLS = 4_096", "MAX_BANK_CELLS = 4_096", '"NUMERIC_ERROR"'],
+    )
+    audit.require_text(
+        ROOT / "src" / "cstyle_compiler.py",
+        ['source.lstrip("\\ufeff")', 'raise CStyleCompileError("source nesting is too deep")'],
+    )
+    audit.require_text(
+        ROOT / "web" / "playground" / "static-runtime.js",
+        ['source.replace(/^\\uFEFF/, "")'],
     )
     audit.require_text(
         ROOT / "docs" / "playground.md",
-        ["Python 3.11", "/api/challenge", "Copy JSON", "Copy Program Link", "Run Suite", "Timeline Scrubber", "Operation Profile", "static fallback", "GitHub Pages版はデモ用", "公式チャレンジ提出用JSON"],
+        ["Python 3.11", "/api/challenge", "?suite=numerical", "Copy JSON", "Copy Program Link", "Run Suite", "Timeline Scrubber", "Operation Profile", "static fallback", "GitHub Pages版はデモ用", "公式チャレンジ提出用JSON"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "runtime_v0.md",
+        ["Lifecycle invariant", "TaskContext", "PERMISSION_ERROR", "schema v1", "fresh=false"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "thermal_models.md",
+        ["simple-v0", "coupled-v1", "field_coupling", "bank_coupling", "THERMAL_MODEL_ERROR"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "aging_models.md",
+        ["simple-v0", "aging-v1", "deterministic", "refresh_health_ceiling", "AGING_MODEL_ERROR"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "diagnostics_v1.md",
+        ["TR0..TR7", "ETRIT", "ETCMP", "ETSEL", "ETEMP", "TEMP", "read-only"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "calibration_dataset_v1.md",
+        ["schema_version=1", "synthetic", "empirical", "provenance", "SHA-256", "holdout", "MAE", "RMSE", "coverage", "parameter_fit=false"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "metadata_contract_v1.md",
+        ["schema version", "all 38 opcodes", "preserve", "copy", "reset", "derive", "aggregate", "fail closed"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "conformance_matrix.md",
+        ["EPU Conformance Matrix", "Implemented", "Partial", "Not implemented"],
+    )
+    audit.require_text(
+        ROOT / "docs" / "static_asm_parity_v1.md",
+        ["38 public opcodes", "schema version 1", "absolute tolerance `1e-9`", "EPUError", "366.6"],
     )
     audit.require_text(
         ROOT / "examples" / "compiler_starter" / "README.md",
-        ["emit_baseline_assembly.py", "generated-assembly", "ebase challenge --assembly-dir", "Safe things to modify", "Do not modify"],
+        ["emit_baseline_assembly.py", "generated-assembly", "ebase challenge --assembly-dir", "--suite numerical", "Safe things to modify", "Do not modify"],
     )
     image = ROOT / "docs" / "assets" / "playground-challenge.png"
     if image.exists():
@@ -223,22 +294,30 @@ def check_packaging(audit: Audit) -> None:
     audit.require_text(
         ROOT / "pyproject.toml",
         [
+            'version = "0.2.0"',
+            '[project.urls]',
+            'Playground = "https://AAAmirinu.github.io/e-base-computer/"',
             'ebase = "epu_cli:main"',
             'ebase-playground = "web_playground:main"',
+            'ebase-calibrate = "epu_calibration_cli:main"',
             '"epu_challenge"',
             '"epu_leaderboard"',
+            '"epu_runtime"',
+            '"epu_calibration"',
+            '"epu_metadata"',
             '"epu_spec"',
+            '"epu_version"',
             'e_base_computer_web = ["playground/*"]',
         ],
     )
     audit.require_text(
         ROOT / "MANIFEST.in",
-        ["LICENSE NOTICE TRADEMARKS.md TECHNICAL_SCOPE.md", "recursive-include docs/assets *.png", "recursive-include examples *.py *.cbase *.epu *.json *.md", "recursive-include src/e_base_computer_web/playground"],
+        ["LICENSE NOTICE TRADEMARKS.md TECHNICAL_SCOPE.md", "recursive-include docs/assets *.png", "recursive-include examples *.py *.cbase *.epu *.json *.md", "recursive-include conformance *.json", "recursive-include tests/data *.json", "recursive-include scripts *.py *.cjs", "recursive-include src/e_base_computer_web/playground"],
     )
-    audit.require_text(ROOT / ".gitignore", ["generated-assembly/", "private_materials/"])
+    audit.require_text(ROOT / ".gitignore", [".ai/", ".agents/", ".codex/", "generated-assembly/", "private_materials/"])
     audit.require_text(
         ROOT / "Dockerfile",
-        ['CMD ["ebase-playground", "--host", "0.0.0.0", "--port", "8765"]'],
+        ["NOTICE TRADEMARKS.md TECHNICAL_SCOPE.md", "org.opencontainers.image.version", 'CMD ["ebase-playground", "--host", "0.0.0.0", "--port", "8765"]'],
     )
     devcontainer = json.loads(read_text(ROOT / ".devcontainer" / "devcontainer.json"))
     audit.check("devcontainer forwards 8765", 8765 in devcontainer.get("forwardPorts", []))
@@ -253,9 +332,13 @@ def check_playground_assets(audit: Audit) -> None:
         audit.check(f"packaged playground {name} exists", packaged.exists())
         if source.exists() and packaged.exists():
             audit.check(f"playground {name} is in sync", source.read_bytes() == packaged.read_bytes())
-    audit.require_text(source_root / "index.html", ["static-runtime.js", "Run Suite", "Copy Program Link", "Copy JSON", "Official Challenge", "timelineScrubber", "operationProfile"])
-    audit.require_text(source_root / "app.js", ["/api/challenge", "copyChallengeJson", "copyShareLink", "loadSharedState", "runStaticProgram", "challengeSuiteSelect", "timelineScrubber", "renderOperationProfile", "sampleDescription"])
-    audit.require_text(source_root / "static-runtime.js", ["EBaseStaticRuntime", "runChallengeSuite", "thermal-degrade"])
+    audit.require_text(source_root / "index.html", ["static-runtime.js", "Run Suite", "challengeSuiteSelect", "timelineScrubber", "operationProfile", "Copy Program Link", "Copy JSON", "Official Challenge"])
+    audit.require_text(source_root / "app.js", ["/api/challenge", "challengeSuiteSelect", "copyChallengeJson", "copyShareLink", "loadSharedState", "runStaticProgram", "selectTimelineIndex", "renderOperationProfile", "demo_only", "sampleDescription"])
+    audit.require_text(source_root / "static-runtime.js", ["EBaseStaticRuntime", "runChallengeSuite", "thermal-degrade", "numerical-polynomial", "NUMERICAL_EXPECTED"])
+    audit.require_text(
+        source_root / "static-runtime.js",
+        ["StaticCStyleCompiler", "compileC", "CStyleCompileError", "runAsm(compiled.assembly"],
+    )
     index_text = read_text(source_root / "index.html")
     static_index = index_text.find("static-runtime.js")
     app_index = index_text.find("app.js")
@@ -286,25 +369,45 @@ def check_challenge_baseline(audit: Audit) -> None:
 
     slugs = set(OFFICIAL_CHALLENGE_SLUGS)
     audit.check("official challenge slug set", slugs == EXPECTED_CHALLENGES, repr(slugs))
+    numerical_slugs = set(NUMERICAL_CHALLENGE_SLUGS)
+    audit.check(
+        "numerical challenge slug set",
+        numerical_slugs == EXPECTED_NUMERICAL_CHALLENGES,
+        repr(numerical_slugs),
+    )
     try:
         summary = summarize_suite(run_official_suite())
         payload = challenge_payload()
+        numerical_summary = summarize_numerical_suite(run_numerical_suite())
+        numerical_payload = challenge_payload(suite="numerical")
     except Exception as exc:
         audit.check("official challenge executes", False, str(exc))
         return
 
     audit.check("official challenge correct", summary.get("correct") is True)
     audit.check("official challenge score stable", summary.get("total_score") == EXPECTED_TOTAL_SCORE)
+    audit.check("official challenge schema is v2", summary.get("challenge_schema_version") == 2)
+    audit.check("official challenge scoring model", summary.get("scoring_model") == "official-score-v1")
     audit.check("web challenge payload ok", payload.get("ok") is True)
     audit.check("web challenge payload correct", payload.get("correct") is True)
     audit.check("web challenge payload score stable", payload.get("total_score") == EXPECTED_TOTAL_SCORE)
-    numerical = summarize_numerical_suite(run_numerical_suite())
-    audit.check("numerical challenge slug count", len(NUMERICAL_CHALLENGE_SLUGS) == 3)
-    audit.check("numerical challenge correct", numerical.get("correct") is True)
-    audit.check("numerical challenge reports accuracy", numerical.get("mean_accuracy_digits", 0) > 8)
+    audit.check("numerical challenge correct", numerical_summary.get("correct") is True)
+    audit.check("numerical challenge schema is v2", numerical_summary.get("challenge_schema_version") == 2)
+    audit.check("numerical challenge scoring model", numerical_summary.get("scoring_model") == "numerical-score-v1")
+    audit.check(
+        "numerical challenge score stable",
+        numerical_summary.get("total_score") == EXPECTED_NUMERICAL_TOTAL_SCORE,
+    )
+    audit.check("web numerical payload ok", numerical_payload.get("ok") is True)
+    audit.check("web numerical payload correct", numerical_payload.get("correct") is True)
+    audit.check(
+        "web numerical payload score stable",
+        numerical_payload.get("total_score") == EXPECTED_NUMERICAL_TOTAL_SCORE,
+    )
     baseline_entry = load_submission(ROOT / "examples" / "challenges" / "baseline_submission.json")
     audit.check("baseline leaderboard submission valid", baseline_entry.valid)
     audit.check("baseline leaderboard submission score stable", baseline_entry.total_score == EXPECTED_TOTAL_SCORE)
+    audit.check("baseline leaderboard provenance preserved", baseline_entry.challenge_schema_version == 2 and baseline_entry.emulator_version == "0.2.0" and baseline_entry.scoring_model == "official-score-v1")
     spec = spec_payload()
     opcodes = {instruction["opcode"] for instruction in spec["instructions"]}  # type: ignore[index]
     audit.check("instruction spec includes E quantization", {"EQOS", "EQUANT", "EDEQ"}.issubset(opcodes))
@@ -322,35 +425,39 @@ def check_github_templates(audit: Audit) -> None:
     )
     audit.require_text(
         ROOT / ".github" / "workflows" / "tests.yml",
-        ["docker-smoke", "release-smoke", "actions/setup-node@v4", "node-version: \"20\"", "scripts/release_smoke.py", "scripts/static_playground_smoke.cjs", "ebase challenge --json", "--assembly-dir", "/api/challenge"],
+        ["docker-smoke", "release-smoke", "actions/setup-node@v4", "node-version: \"20\"", "scripts/verify_release.py", "scripts/release_smoke.py", "scripts/static_playground_smoke.cjs", "scripts/static_conformance.cjs", "tests.test_static_c_parity", "ebase challenge --json", "--assembly-dir", "/api/challenge"],
     )
     audit.require_text(
         ROOT / ".github" / "workflows" / "pages.yml",
-        ["actions/setup-node@v4", "node-version: \"20\"", "scripts/static_playground_smoke.cjs", "upload-pages-artifact", "web/playground", "deploy-pages"],
+        ["actions/setup-node@v4", "node-version: \"20\"", "actions/setup-python@v5", "tests.test_static_c_parity", "scripts/static_playground_smoke.cjs", "scripts/static_conformance.cjs", "upload-pages-artifact", "web/playground", "deploy-pages"],
     )
     audit.require_text(
         ROOT / ".github" / "workflows" / "release.yml",
-        ["scripts/release_smoke.py", "python -m build", "twine check", "upload-artifact", "gh release create"],
+        ["actions/setup-node@v4", "node-version: \"20\"", "scripts/verify_release.py", "--tag", "scripts/release_smoke.py", "python -m build --outdir release-dist", "scripts/make_release_bundle.py", "twine check", "SHA256SUMS.txt", "docker build", "upload-artifact", "gh release create", "release_notes_v0_2.md"],
     )
 
 
 def check_commands(audit: Audit) -> None:
     commands = [
         ([sys.executable, "-m", "unittest", "discover", "-s", "tests"], "unit tests"),
-        ([sys.executable, "-m", "py_compile", "src/epu.py", "src/emulator.py", "src/cstyle_compiler.py", "src/epu_challenge.py", "src/epu_cli.py", "src/epu_leaderboard.py", "src/epu_spec.py", "src/web_playground.py"], "py_compile"),
+        ([sys.executable, "-m", "py_compile", "src/ecomputer.py", "src/epu.py", "src/epu_analysis.py", "src/epu_calibration.py", "src/epu_calibration_cli.py", "src/epu_diagnostics.py", "src/epu_metadata.py", "src/emulator.py", "src/cstyle_compiler.py", "src/epu_challenge.py", "src/epu_cli.py", "src/epu_leaderboard.py", "src/epu_runtime.py", "src/epu_scoring.py", "src/epu_spec.py", "src/epu_version.py", "src/web_playground.py"], "py_compile"),
         ([sys.executable, "-m", "py_compile", "scripts/finalize_project_urls.py"], "release helper py_compile"),
         ([sys.executable, "-m", "py_compile", "scripts/make_release_bundle.py"], "release bundle py_compile"),
+        ([sys.executable, "-m", "py_compile", "scripts/verify_release.py"], "release verifier py_compile"),
         ([sys.executable, "-m", "py_compile", "scripts/release_smoke.py"], "release smoke py_compile"),
+        ([sys.executable, "-m", "py_compile", "scripts/evaluate_calibration.py"], "calibration evaluator py_compile"),
         ([sys.executable, "-m", "py_compile", "examples/compiler_starter/emit_baseline_assembly.py"], "compiler starter py_compile"),
         ([sys.executable, "scripts/finalize_project_urls.py", "owner/repo"], "release helper dry run"),
         ([sys.executable, "scripts/finalize_project_urls.py", "owner/repo", "--playground-url", "https://play.example.test/"], "release helper custom playground dry run"),
         ([sys.executable, "scripts/make_release_bundle.py", "--dry-run"], "release bundle dry run"),
+        ([sys.executable, "scripts/verify_release.py"], "release metadata verification"),
+        ([sys.executable, "-m", "epu_cli", "--version"], "CLI version"),
         ([sys.executable, "-m", "epu_cli", "challenge", "--json"], "challenge CLI"),
-        ([sys.executable, "-m", "epu_cli", "challenge", "--suite", "numerical", "--json"], "numerical challenge CLI"),
         ([sys.executable, "-m", "epu_cli", "leaderboard", "examples/challenges/baseline_submission.json"], "leaderboard CLI"),
         ([sys.executable, "-m", "epu_cli", "leaderboard", "examples/challenges/*.json"], "leaderboard glob CLI"),
         ([sys.executable, "-m", "epu_cli", "leaderboard", "examples/challenges/*.json", "--best-per-participant"], "leaderboard best CLI"),
         ([sys.executable, "-m", "epu_cli", "spec", "--json"], "spec CLI"),
+        ([sys.executable, "scripts/evaluate_calibration.py", "tests/data/calibration_synthetic_v1.json"], "synthetic calibration residual evaluator"),
     ]
     for command, label in commands:
         audit.check(label, run(command))
@@ -361,6 +468,15 @@ def check_commands(audit: Audit) -> None:
         audit.check("packaged playground JS syntax", run(["node", "--check", "src/e_base_computer_web/playground/app.js"]))
         audit.check("packaged static runtime JS syntax", run(["node", "--check", "src/e_base_computer_web/playground/static-runtime.js"]))
         audit.check("static playground smoke", run(["node", "scripts/static_playground_smoke.cjs"]))
+        audit.check(
+            "static C compiler parity corpus",
+            run([sys.executable, "-m", "unittest", "tests.test_static_c_parity"]),
+        )
+        audit.check(
+            "static 38-opcode ASM parity corpus",
+            run([sys.executable, "-m", "unittest", "tests.test_static_asm38_parity"]),
+        )
+        audit.check("cross-runtime static conformance", run(["node", "scripts/static_conformance.cjs"]))
     else:
         print("skip node checks: node not found")
 
@@ -404,9 +520,15 @@ def check_docker_build(audit: Audit) -> None:
 
 def run(command: List[str]) -> bool:
     print("+ " + " ".join(command))
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(SRC) + (
+        os.pathsep + existing_pythonpath if existing_pythonpath else ""
+    )
     completed = subprocess.run(
         command,
         cwd=ROOT,
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,

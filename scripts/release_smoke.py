@@ -52,10 +52,45 @@ def main() -> int:
             ]
         )
         assert starter_challenge["correct"]
-        assert starter_challenge["total_score"] == 373.1
+        assert starter_challenge["total_score"] == 366.6
+        assert starter_challenge["challenge_schema_version"] == 2
+        assert starter_challenge["emulator_version"] == "0.2.0"
+        assert starter_challenge["scoring_model"] == "official-score-v1"
+        starter_numerical_dir = temp / "starter-generated-numerical"
+        run(
+            [
+                sys.executable,
+                "examples/compiler_starter/emit_baseline_assembly.py",
+                "--suite",
+                "numerical",
+                "--output",
+                str(starter_numerical_dir),
+            ]
+        )
+        starter_numerical = run_json(
+            [
+                sys.executable,
+                "-m",
+                "epu_cli",
+                "challenge",
+                "--suite",
+                "numerical",
+                "--assembly-dir",
+                str(starter_numerical_dir),
+                "--json",
+            ]
+        )
+        assert starter_numerical["correct"]
+        assert starter_numerical["total_score"] == 302.304481
+        assert starter_numerical["challenge_schema_version"] == 2
+        assert starter_numerical["emulator_version"] == "0.2.0"
+        assert starter_numerical["scoring_model"] == "numerical-score-v1"
         run([sys.executable, "-m", "unittest", "discover", "-s", "tests"])
         if shutil.which("node"):
             run(["node", "scripts/static_playground_smoke.cjs"])
+            run([sys.executable, "-m", "unittest", "tests.test_static_c_parity"])
+            run([sys.executable, "-m", "unittest", "tests.test_static_asm38_parity"])
+            run(["node", "scripts/static_conformance.cjs"])
         run([sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "-w", str(dist)])
         wheel = next(dist.glob("*.whl"))
         run([sys.executable, "-m", "venv", str(venv)])
@@ -63,6 +98,7 @@ def main() -> int:
         scripts = python.parent
         ebase = scripts / executable_name("ebase")
         playground = scripts / executable_name("ebase-playground")
+        calibrate = scripts / executable_name("ebase-calibrate")
         run(
             [
                 str(python),
@@ -75,17 +111,26 @@ def main() -> int:
             ]
         )
         assert playground.exists()
+        assert calibrate.exists()
+        assert run_text([str(ebase), "--version"], cwd=installed_cwd).strip() == "ebase 0.2.0"
         run([str(ebase), "samples"], cwd=installed_cwd)
         run([str(ebase), "samples", "thermal-degrade", "--run", "--json"], cwd=installed_cwd)
         challenge = run_json([str(ebase), "challenge", "--json"], cwd=installed_cwd)
         assert challenge["correct"]
-        assert challenge["total_score"] == 373.1
+        assert challenge["total_score"] == 366.6
+        assert challenge["challenge_schema_version"] == 2
+        assert challenge["emulator_version"] == "0.2.0"
+        assert challenge["scoring_model"] == "official-score-v1"
         numerical = run_json(
             [str(ebase), "challenge", "--suite", "numerical", "--json"],
             cwd=installed_cwd,
         )
+        assert numerical["suite"] == "numerical"
         assert numerical["correct"]
-        assert len(numerical["results"]) == 3
+        assert numerical["total_score"] == 302.304481
+        assert numerical["challenge_schema_version"] == 2
+        assert numerical["emulator_version"] == "0.2.0"
+        assert numerical["scoring_model"] == "numerical-score-v1"
         baseline = installed_cwd / "baseline_submission.json"
         baseline.write_text(
             json.dumps({"participant": "release-smoke-baseline", **challenge}, indent=2),
@@ -125,6 +170,44 @@ def main() -> int:
             encoding="utf-8",
         )
         run([str(ebase), "run", str(program), "--json"], cwd=installed_cwd)
+        diagnostic = installed_cwd / "diagnostic.epu"
+        diagnostic.write_text("ECONST ER0, 1\nETEMP TEMP0\n", encoding="utf-8")
+        modeled = run_json(
+            [
+                str(ebase),
+                "run",
+                str(diagnostic),
+                "--language",
+                "asm",
+                "--thermal-model",
+                "coupled",
+                "--aging-model",
+                "aging",
+                "--auto-refresh",
+                "--observer-mode",
+                "destructive",
+                "--json",
+            ],
+            cwd=installed_cwd,
+        )
+        assert modeled["models"]["thermal"]["model_id"] == "coupled-v1"
+        assert modeled["models"]["aging"]["model_id"] == "aging-v1"
+        assert modeled["controls"] == {
+            "auto_refresh": True,
+            "observer_mode": "destructive",
+        }
+        assert modeled["analysis"]["schema_version"] == 1
+        assert modeled["analysis"]["opcode_counts"] == {"ECONST": 1, "ETEMP": 1}
+        assert modeled["analysis"]["model_counts"]["thermal"] == {"coupled-v1": 2}
+        assert modeled["analysis"]["model_counts"]["aging"] == {"aging-v1": 2}
+        calibration = run_json(
+            [str(calibrate), str(ROOT / "tests" / "data" / "calibration_synthetic_v1.json")],
+            cwd=installed_cwd,
+        )
+        assert calibration["evaluation_mode"] == "read-only-residuals"
+        assert calibration["parameter_fit"] is False
+        assert calibration["synthetic_fixture"] is True
+        assert calibration["overall"]["coverage"] == 1.0
         smoke_playground(python, installed_cwd)
     finally:
         try:
@@ -154,6 +237,18 @@ def run_json(command: list[str], cwd: Path = ROOT) -> dict[str, object]:
     return json.loads(completed.stdout)
 
 
+def run_text(command: list[str], cwd: Path = ROOT) -> str:
+    print("+ " + " ".join(command))
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        check=True,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    return completed.stdout
+
+
 def venv_python(venv: Path) -> Path:
     if os.name == "nt":
         return venv / "Scripts" / "python.exe"
@@ -174,20 +269,37 @@ def smoke_playground(python: Path, cwd: Path) -> None:
     )
     try:
         wait_for_server(port)
+        assert http_server_header(port).startswith("EBasePlayground/0.2.0")
         index = http_get(port, "/")
         assert "E Digit Ladder" in index
         assert "Copy Program Link" in index
+        assert "Run Suite" in index
+        assert "timelineScrubber" in index
+        assert "operationProfile" in index
         assert "static-runtime.js" in index
         static_runtime = http_get(port, "/static-runtime.js")
         assert "EBaseStaticRuntime" in static_runtime
         assert "runChallengeSuite" in static_runtime
+        assert "NUMERICAL_EXPECTED" in static_runtime
         samples = json.loads(http_get(port, "/api/samples"))
         assert samples["ok"]
         assert any(sample["slug"] == "thermal-degrade" for sample in samples["samples"])
+        assert any(sample["slug"] == "numerical-recurrence" for sample in samples["samples"])
         challenge = json.loads(http_get(port, "/api/challenge"))
         assert challenge["ok"]
         assert challenge["correct"]
-        assert challenge["total_score"] == 373.1
+        assert challenge["total_score"] == 366.6
+        assert challenge["challenge_schema_version"] == 2
+        assert challenge["emulator_version"] == "0.2.0"
+        assert challenge["scoring_model"] == "official-score-v1"
+        numerical = json.loads(http_get(port, "/api/challenge?suite=numerical"))
+        assert numerical["ok"]
+        assert numerical["suite"] == "numerical"
+        assert numerical["correct"]
+        assert numerical["total_score"] == 302.304481
+        assert numerical["challenge_schema_version"] == 2
+        assert numerical["emulator_version"] == "0.2.0"
+        assert numerical["scoring_model"] == "numerical-score-v1"
         thermal = json.loads(http_get(port, "/api/challenge?name=thermal-degrade"))
         assert thermal["ok"]
         assert thermal["challenge"]["slug"] == "thermal-degrade"
@@ -200,11 +312,19 @@ def smoke_playground(python: Path, cwd: Path) -> None:
                     "language": "c",
                     "precision": 8,
                     "maxSteps": 1000,
+                    "auto_refresh": True,
+                    "observer_mode": "destructive",
                 },
             )
         )
         assert response["ok"]
         assert response["output"] == {"OUT0": 5.0}
+        assert response["analysis"]["schema_version"] == 1
+        assert response["analysis"]["observation_events"] == 1
+        assert response["controls"] == {
+            "auto_refresh": True,
+            "observer_mode": "destructive",
+        }
     finally:
         process.terminate()
         try:
@@ -228,6 +348,11 @@ def wait_for_server(port: int) -> None:
 def http_get(port: int, path: str) -> str:
     with urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as response:
         return response.read().decode("utf-8")
+
+
+def http_server_header(port: int) -> str:
+    with urlopen(f"http://127.0.0.1:{port}/", timeout=5) as response:
+        return response.headers.get("Server", "")
 
 
 def http_post(port: int, path: str, payload: dict[str, object]) -> str:

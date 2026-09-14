@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
-from epu import EPU, EPUError, ParsedInstruction, parse_instruction
+from epu import EPU, EPUError, EPointer, ParsedInstruction, TaskContext, parse_instruction
 
 
 @dataclass(frozen=True)
@@ -87,8 +87,15 @@ class EPUEmulator:
     conditional branches, halting, a program counter, and an instruction budget.
     """
 
-    def __init__(self, epu: Optional[EPU] = None, max_steps: int = 10_000) -> None:
-        self.epu = epu or EPU()
+    def __init__(
+        self,
+        epu: Optional[EPU] = None,
+        max_steps: int = 10_000,
+        context: Optional[TaskContext] = None,
+    ) -> None:
+        self.epu = epu or EPU(context=context)
+        if context is not None:
+            self.epu.set_context(context)
         self.max_steps = max_steps
         self.pc = 0
         self.halted = False
@@ -122,63 +129,44 @@ class EPUEmulator:
             self.pc += 1
             return
 
-        before = self.epu.visual_snapshot()
-        self.epu.sr = {"OK"}
-        exception_code = None
-        target_labels: List[str] = []
-
-        try:
-            if op == "EHALT":
-                self.halted = True
-                self.pc += 1
-            elif op == "EPRINT":
-                self._expect_args(op, instruction.args, 1)
-                source = instruction.args[0]
-                target_labels = [source]
-                precision = int(instruction.options.get("precision", "8"))
-                self.epu.output[self._next_output_name()] = round(
-                    self.epu._reg(source).word.to_real(),
-                    precision,
-                )
-                self.epu.sr.add("OBSERVATION_DIRTY")
-                self.pc += 1
-            elif op == "EJMP":
-                self._expect_args(op, instruction.args, 1)
-                target_labels = [instruction.args[0]]
-                self.pc = self._label_pc(instruction.args[0], labels)
-            else:
-                self._expect_args(op, instruction.args, 2)
-                register, label = instruction.args
-                target_labels = [register, label]
-                if self._branch_taken(op, self.epu._reg(register).word.to_real()):
-                    self.pc = self._label_pc(label, labels)
-                else:
-                    self.pc += 1
-        except EPUError as exc:
-            exception_code = exc.code
-            self.epu.last_exception = exc
-            self.epu.sr.discard("OK")
-            self.epu.sr.add("EXCEPTION")
-            if self.epu.cr.get("exception_policy") != "WARN":
-                self.epu._record_event(
-                    instruction,
-                    before,
-                    self.epu.visual_snapshot(),
-                    target_labels,
-                    exception_code,
-                )
-                raise
-            self.epu.trace.append(str(exc))
+        caught = self.epu.execute_cycle(
+            instruction,
+            lambda parsed: self._execute_control(parsed, labels),
+        )
+        if caught is not None:
             self.pc += 1
 
-        self.epu.tick += 1
-        self.epu._record_event(
-            instruction,
-            before,
-            self.epu.visual_snapshot(),
-            target_labels,
-            exception_code,
-        )
+    def _execute_control(
+        self,
+        instruction: ParsedInstruction,
+        labels: Dict[str, int],
+    ) -> List[Union[str, EPointer]]:
+        op = instruction.op
+        if op == "EHALT":
+            self._expect_args(op, instruction.args, 0)
+            self.halted = True
+            self.pc += 1
+            return []
+        if op == "EPRINT":
+            self._expect_args(op, instruction.args, 1)
+            source = instruction.args[0]
+            precision = int(instruction.options.get("precision", "8"))
+            targets = self.epu.observe_register(self._next_output_name(), source, precision)
+            self.pc += 1
+            return targets
+        if op == "EJMP":
+            self._expect_args(op, instruction.args, 1)
+            label = instruction.args[0]
+            self.pc = self._label_pc(label, labels)
+            return [label]
+
+        self._expect_args(op, instruction.args, 2)
+        register, label = instruction.args
+        if self._branch_taken(op, self.epu._reg(register).word.to_real()):
+            self.pc = self._label_pc(label, labels)
+        else:
+            self.pc += 1
+        return [register, label]
 
     def _branch_taken(self, op: str, value: float) -> bool:
         epsilon = 1e-12

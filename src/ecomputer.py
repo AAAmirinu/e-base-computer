@@ -12,6 +12,8 @@ from typing import Dict, Iterable, List, Mapping, Tuple
 
 
 EPSILON = 1e-12
+MIN_EXPONENT = -745
+MAX_EXPONENT = 709
 
 
 class EWordError(ValueError):
@@ -20,12 +22,20 @@ class EWordError(ValueError):
 
 def _clean_digits(digits: Mapping[int, float]) -> Dict[int, float]:
     cleaned: Dict[int, float] = {}
-    for power, digit in digits.items():
-        value = float(digit)
-        if not isfinite(value):
+    for raw_power, raw_digit in digits.items():
+        power = int(raw_power)
+        digit = float(raw_digit)
+        if power < MIN_EXPONENT or power > MAX_EXPONENT:
+            raise EWordError(
+                f"E-word exponent {power} is outside supported range "
+                f"[{MIN_EXPONENT}, {MAX_EXPONENT}]"
+            )
+        if not isfinite(digit):
             raise EWordError("E-word digits must be finite")
-        if abs(value) > EPSILON:
-            cleaned[int(power)] = value
+        if digit < -EPSILON:
+            raise EWordError("E-word digits must be non-negative")
+        if abs(digit) > EPSILON:
+            cleaned[power] = digit
     return cleaned
 
 
@@ -113,9 +123,9 @@ class EWord:
                 digit * (e**power) for power, digit in self.digits.items()
             )
         except OverflowError as exc:
-            raise EWordError("E-word value exceeds finite floating point range") from exc
+            raise EWordError("E-word value exceeds the finite float range") from exc
         if not isfinite(value):
-            raise EWordError("E-word value exceeds finite floating point range")
+            raise EWordError("E-word value exceeds the finite float range")
         return value
 
     def shift(self, powers: int) -> "EWord":

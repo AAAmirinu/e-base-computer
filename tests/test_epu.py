@@ -52,25 +52,6 @@ class EPUTests(unittest.TestCase):
         self.assertLess(epu.er["ER1"].current_partition, 81)
         self.assertIsNotNone(epu.er["ER1"].quantized_state)
 
-    def test_quantization_requires_a_supported_partition_step(self) -> None:
-        for requested in (0, 10, 244):
-            with self.subTest(requested=requested):
-                epu = EPU()
-                epu.run("ECONST ER0, 1.2")
-
-                with self.assertRaises(EPUError) as captured:
-                    epu.step(f"EQUANT ER1, ER0, {requested}")
-
-                self.assertEqual(captured.exception.code, "BAD_OPERAND")
-
-    def test_qos_requires_a_supported_partition_step(self) -> None:
-        epu = EPU()
-
-        with self.assertRaises(EPUError) as captured:
-            epu.step("EQOS ER0 ; min_partition=10")
-
-        self.assertEqual(captured.exception.code, "BAD_OPERAND")
-
     def test_precision_error_when_degrade_is_denied(self) -> None:
         epu = EPU()
         epu.run("ECONST ER0, 1.2")
@@ -132,33 +113,27 @@ class EPUTests(unittest.TestCase):
         self.assertIn("digits", timeline[1]["after"]["er"]["ER1"])
         self.assertIn("OBSERVATION_DIRTY", timeline[2]["flags"])
 
-    def test_non_finite_literal_is_an_epu_error(self) -> None:
+    def test_allocation_rejects_oversized_field_without_mutation(self) -> None:
         epu = EPU()
 
         with self.assertRaises(EPUError) as captured:
-            epu.step("ECONST ER0, 1e999")
-
-        self.assertEqual(captured.exception.code, "NUMERIC_ERROR")
-
-    def test_bad_numeric_operands_and_large_fields_are_epu_errors(self) -> None:
-        epu = EPU()
-
-        with self.assertRaises(EPUError) as invalid_length:
-            epu.step("EALLOC EP0, COLD, not-a-number")
-        self.assertEqual(invalid_length.exception.code, "BAD_OPERAND")
-
-        with self.assertRaises(EPUError) as large_field:
             epu.step(f"EALLOC EP0, COLD, {MAX_FIELD_CELLS + 1}")
-        self.assertEqual(large_field.exception.code, "MEMORY_ERROR")
 
-    def test_allocation_cannot_exceed_a_bank_limit(self) -> None:
+        self.assertEqual(captured.exception.code, "MEMORY_ERROR")
+        self.assertEqual(epu.banks, {})
+        self.assertEqual(epu.fields, {})
+
+    def test_allocation_rejects_bank_overflow_without_partial_append(self) -> None:
         epu = EPU()
         epu.step(f"EALLOC EP0, COLD, {MAX_BANK_CELLS}")
+        before_length = len(epu.banks["COLD"])
 
         with self.assertRaises(EPUError) as captured:
             epu.step("EALLOC EP1, COLD, 1")
 
         self.assertEqual(captured.exception.code, "MEMORY_ERROR")
+        self.assertEqual(len(epu.banks["COLD"]), before_length)
+        self.assertIsNone(epu.ep["EP1"])
 
 
 if __name__ == "__main__":

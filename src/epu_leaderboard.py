@@ -11,6 +11,20 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from epu_challenge import NUMERICAL_CHALLENGE_SLUGS, OFFICIAL_CHALLENGE_SLUGS
 
 
+LEGACY_CHALLENGE_SCHEMA_VERSION = 1
+LEGACY_EMULATOR_VERSION = "unknown"
+LEGACY_SCORING_MODEL = "legacy-unversioned"
+LEGACY_COMPATIBILITY_WARNING = (
+    "legacy submission has no challenge provenance; it is ranked only with "
+    "other legacy-unversioned submissions"
+)
+PROVENANCE_FIELDS = (
+    "challenge_schema_version",
+    "emulator_version",
+    "scoring_model",
+)
+
+
 @dataclass(frozen=True)
 class LeaderboardEntry:
     participant: str
@@ -27,13 +41,22 @@ class LeaderboardEntry:
     suite: str = "official"
     max_relative_error: float = 0.0
     mean_accuracy_digits: float = 0.0
+    challenge_schema_version: int = LEGACY_CHALLENGE_SCHEMA_VERSION
+    emulator_version: str = LEGACY_EMULATOR_VERSION
+    scoring_model: str = LEGACY_SCORING_MODEL
+    compatibility_warning: Optional[str] = None
+
+    def comparison_key(self) -> Tuple[str, str]:
+        """Return the only cohort inside which scores may be compared."""
+
+        return self.suite, self.scoring_model
 
     def ranking_key(self) -> Tuple[object, ...]:
         bucket = 0 if self.valid and self.correct else 1 if self.valid else 2
         if self.suite == "numerical":
             return (
-                self.suite,
                 bucket,
+                *self.comparison_key(),
                 self.max_relative_error,
                 self.total_steps,
                 self.total_score,
@@ -41,8 +64,8 @@ class LeaderboardEntry:
                 self.participant.lower(),
             )
         return (
-            self.suite,
             bucket,
+            *self.comparison_key(),
             self.total_score,
             self.total_steps,
             self.total_assembly_lines,
@@ -81,9 +104,9 @@ def expand_submission_paths(paths: Sequence[Path]) -> List[Path]:
 
 
 def select_best_per_participant(entries: Iterable[LeaderboardEntry]) -> List[LeaderboardEntry]:
-    best: Dict[str, LeaderboardEntry] = {}
+    best: Dict[Tuple[str, str, str], LeaderboardEntry] = {}
     for entry in entries:
-        key = entry.participant.lower()
+        key = (entry.participant.lower(), *entry.comparison_key())
         current = best.get(key)
         if current is None or entry.ranking_key() < current.ranking_key():
             best[key] = entry
@@ -146,6 +169,12 @@ def submission_from_payload(
     if suite not in {"official", "numerical"}:
         issues.append(f"unknown suite: {suite!r}")
         suite = "official"
+    (
+        challenge_schema_version,
+        emulator_version,
+        scoring_model,
+        compatibility_warning,
+    ) = read_provenance(submission_payload, issues)
     results = submission_payload.get("results")
     if not isinstance(results, list):
         return invalid_entry(participant, source, "payload must include a results array")
@@ -226,6 +255,10 @@ def submission_from_payload(
         mean_accuracy_digits=round(
             sum(accuracy_digits) / max(1, len(accuracy_digits)), 3
         ),
+        challenge_schema_version=challenge_schema_version,
+        emulator_version=emulator_version,
+        scoring_model=scoring_model,
+        compatibility_warning=compatibility_warning,
     )
 
 
@@ -234,6 +267,7 @@ def leaderboard_payload(entries: Sequence[LeaderboardEntry]) -> Dict[str, object
     return {
         "official_slugs": list(OFFICIAL_CHALLENGE_SLUGS),
         "numerical_slugs": list(NUMERICAL_CHALLENGE_SLUGS),
+        "ranking_scope": ["suite", "scoring_model"],
         "entries": [entry.to_dict() for entry in ranked],
     }
 
@@ -241,18 +275,24 @@ def leaderboard_payload(entries: Sequence[LeaderboardEntry]) -> Dict[str, object
 def format_leaderboard_markdown(entries: Sequence[LeaderboardEntry]) -> str:
     ranked = sorted(entries, key=lambda entry: entry.ranking_key())
     lines = [
-        "| Rank | Suite | Participant | Valid | Correct | Max rel error | Digits | Total score | Steps | Assembly lines | Degraded | Source | Issues |",
-        "| ---: | --- | --- | :---: | :---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        "| Rank | Suite | Participant | Scoring model | Schema | Emulator | Valid | Correct | Max rel error | Digits | Total score | Steps | Assembly lines | Degraded | Source | Compatibility | Issues |",
+        "| ---: | --- | --- | --- | ---: | --- | :---: | :---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
     ]
-    for index, entry in enumerate(ranked, start=1):
+    group_ranks: Dict[Tuple[str, str], int] = {}
+    for entry in ranked:
+        group = entry.comparison_key()
+        group_ranks[group] = group_ranks.get(group, 0) + 1
         issues = "; ".join(entry.issues) if entry.issues else ""
         lines.append(
             "| "
             + " | ".join(
                 [
-                    str(index),
+                    str(group_ranks[group]),
                     entry.suite,
                     escape_cell(entry.participant),
+                    escape_cell(entry.scoring_model),
+                    str(entry.challenge_schema_version),
+                    escape_cell(entry.emulator_version),
                     yes_no(entry.valid),
                     yes_no(entry.correct),
                     f"{entry.max_relative_error:.3g}",
@@ -262,6 +302,7 @@ def format_leaderboard_markdown(entries: Sequence[LeaderboardEntry]) -> str:
                     str(entry.total_assembly_lines),
                     str(entry.degraded_events),
                     escape_cell(Path(entry.source).name),
+                    escape_cell(entry.compatibility_warning or ""),
                     escape_cell(issues),
                 ]
             )
@@ -284,6 +325,49 @@ def invalid_entry(participant: str, source: str, issue: str) -> LeaderboardEntry
         slugs=[],
         issues=[issue],
     )
+
+
+def read_provenance(
+    payload: Mapping[str, object],
+    issues: List[str],
+) -> Tuple[int, str, str, Optional[str]]:
+    """Read a complete provenance tuple or map an implicit v1 payload to legacy."""
+
+    present = [field in payload for field in PROVENANCE_FIELDS]
+    if not any(present):
+        return (
+            LEGACY_CHALLENGE_SCHEMA_VERSION,
+            LEGACY_EMULATOR_VERSION,
+            LEGACY_SCORING_MODEL,
+            LEGACY_COMPATIBILITY_WARNING,
+        )
+
+    if not all(present):
+        missing = [field for field, is_present in zip(PROVENANCE_FIELDS, present) if not is_present]
+        issues.append("challenge provenance fields must be supplied together; missing " + ", ".join(missing))
+
+    schema_value = payload.get("challenge_schema_version")
+    if isinstance(schema_value, bool) or not isinstance(schema_value, int) or schema_value < 1:
+        issues.append("challenge_schema_version must be a positive integer")
+        challenge_schema_version = LEGACY_CHALLENGE_SCHEMA_VERSION
+    else:
+        challenge_schema_version = schema_value
+
+    emulator_value = payload.get("emulator_version")
+    if not isinstance(emulator_value, str) or not emulator_value.strip():
+        issues.append("emulator_version must be a non-empty string")
+        emulator_version = LEGACY_EMULATOR_VERSION
+    else:
+        emulator_version = emulator_value
+
+    scoring_value = payload.get("scoring_model")
+    if not isinstance(scoring_value, str) or not scoring_value.strip():
+        issues.append("scoring_model must be a non-empty string")
+        scoring_model = LEGACY_SCORING_MODEL
+    else:
+        scoring_model = scoring_value
+
+    return challenge_schema_version, emulator_version, scoring_model, None
 
 
 def read_float(

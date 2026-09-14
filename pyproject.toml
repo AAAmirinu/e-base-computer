@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "e-base-computer"
-version = "0.1.0"
+version = "0.2.0"
 description = "An experimental E-base computer emulator, C-like compiler, and playground."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -35,6 +35,7 @@ Playground = "https://AAAmirinu.github.io/e-base-computer/"
 [project.scripts]
 ebase = "epu_cli:main"
 ebase-playground = "web_playground:main"
+ebase-calibrate = "epu_calibration_cli:main"
 
 [tool.setuptools]
 py-modules = [
@@ -46,8 +47,15 @@ py-modules = [
   "epu_cli",
   "epu_experiments",
   "epu_leaderboard",
+  "epu_runtime",
+  "epu_analysis",
+  "epu_calibration",
+  "epu_calibration_cli",
+  "epu_diagnostics",
+  "epu_metadata",
   "epu_scoring",
   "epu_spec",
+  "epu_version",
   "web_playground",
 ]
 packages = ["e_base_computer_web"]

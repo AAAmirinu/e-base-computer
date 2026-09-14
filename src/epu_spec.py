@@ -5,6 +5,18 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Dict, List
 
+from epu import (
+    AGING_MODEL_ALIASES,
+    AGING_MODELS,
+    AGING_MODEL_SCHEMA_VERSION,
+    INSTRUCTION_STRESS,
+    THERMAL_MODEL_ALIASES,
+    THERMAL_MODELS,
+    THERMAL_MODEL_SCHEMA_VERSION,
+)
+from epu_diagnostics import DIAGNOSTIC_SCHEMA_VERSION, MAX_TRIT_LANES
+from epu_metadata import metadata_contract_payload
+
 
 @dataclass(frozen=True)
 class InstructionSpec:
@@ -32,11 +44,15 @@ INSTRUCTIONS: List[InstructionSpec] = [
     InstructionSpec("ESHIFT", ["ERdst", "ERsrc", "power"], "arithmetic", "Shift an E-word by e^power.", "Moves digit exponents without changing the digit values.", {}, [], "ESHIFT ER3, ER2, 1"),
     InstructionSpec("ESCALE", ["ERdst", "ERsrc", "factor"], "arithmetic", "Scale an E-word by a real factor.", "Re-encodes the scaled real value as normalized E digits.", {}, ["NORMALIZED"], "ESCALE ER1, ER0, 0.5"),
     InstructionSpec("ENORM", ["ERtarget"], "word", "Normalize an E register.", "Applies E-carry so digits fall back into the valid continuous range.", {}, ["NORMALIZED"], "ENORM ER0"),
-    InstructionSpec("EALLOC", ["EPdst", "bank", "length"], "memory", "Allocate an E field in a memory bank.", "Bank kind controls base temperature, guard band, and cooling rate.", {"mode": "EWORD by default", "exponent_offset": "0 by default"}, [], "EALLOC EP0, COLD, 4 ; mode=EWORD"),
+    InstructionSpec("EALLOC", ["EPdst", "bank", "length"], "memory", "Allocate an E field in a memory bank.", "Bank kind controls base temperature, guard band, and cooling rate; the active task principal becomes owner.", {"mode": "EWORD by default", "exponent_offset": "0 by default"}, [], "EALLOC EP0, COLD, 4 ; mode=EWORD"),
     InstructionSpec("ELOAD", ["ERdst", "EPsrc"], "memory", "Load an E field into a register.", "Reconstructs an E-word from field cells and preserves field mode/temperature.", {}, [], "ELOAD ER1, EP0"),
     InstructionSpec("ESTORE", ["EPdst", "ERsrc"], "memory", "Store a register into an E field.", "Writes normalized E digits into continuous E cells and copies thermal/partition state.", {}, [], "ESTORE EP0, ER1"),
     InstructionSpec("EMODE", ["target", "mode"], "mode", "Set register or field mode.", "Changes interpretive mode without changing the underlying continuous digits.", {}, [], "EMODE ER0, CONTINUOUS"),
-    InstructionSpec("EQOS", ["target"], "thermal", "Set quality-of-service constraints.", "Requests a minimum partition; high heat may degrade to the safe partition.", {"min_partition": "3 by default", "degrade": "allow or deny"}, ["DEGRADED"], "EQOS ER0 ; min_partition=243 degrade=allow"),
+    InstructionSpec("ETRIT", ["TRdst", "lane", "..."], "ternary", "Load balanced-ternary lanes.", "Stores one to 27 exact lanes, each -1, 0, or +1.", {}, [], "ETRIT TR0, -1, 0, 1"),
+    InstructionSpec("ETCMP", ["TRdst", "ERa", "ERb"], "ternary", "Compare two E registers into a trit.", "Writes -1, 0, or +1 using a finite non-negative epsilon.", {"epsilon": "1e-12 by default"}, [], "ETCMP TR0, ER0, ER1 ; epsilon=1e-12"),
+    InstructionSpec("ETSEL", ["ERdst", "TRcond", "ERneg", "ERzero", "ERpos"], "ternary", "Select an E register by trit sign.", "Copies the complete negative, zero, or positive source metadata according to the first lane.", {}, [], "ETSEL ER4, TR0, ER1, ER2, ER3"),
+    InstructionSpec("ETEMP", ["name"], "diagnostic", "Emit the read-only TEMP aggregate.", "Reports mass-weighted heat, hottest target, refresh pressure, health, noise, and active model identifiers.", {}, [], "ETEMP OUT_DIAGNOSTICS"),
+    InstructionSpec("EQOS", ["target"], "thermal", "Set quality-of-service constraints.", "Requests a target-local minimum partition and degradation policy; high heat may degrade to the safe partition.", {"min_partition": "3 by default", "degrade": "allow or deny"}, ["DEGRADED"], "EQOS ER0 ; min_partition=243 degrade=allow"),
     InstructionSpec("EQUANT", ["ERdst", "ERsrc", "partition"], "quantization", "Quantize an E-word into a finite partition.", "Maps the value modulo e into a representative discrete state; heat can reduce the partition.", {}, ["QUANTIZED", "DEGRADED"], "EQUANT ER1, ER0, 243"),
     InstructionSpec("EDEQ", ["ERdst", "ERsrc"], "quantization", "Read a quantized representative back as continuous.", "Expands the stored quantized state into the center of its E partition.", {}, [], "EDEQ ER2, ER1"),
     InstructionSpec("ECLAMP", ["ERtarget"], "quantization", "Clamp a quantized register to its representative.", "Forces the E-word value to the current quantized partition representative.", {}, ["QUANTIZED"], "ECLAMP ER1"),
@@ -64,8 +80,22 @@ def instruction_specs() -> List[InstructionSpec]:
 
 
 def spec_payload() -> Dict[str, object]:
+    public_opcodes = [instruction.opcode for instruction in INSTRUCTIONS]
     return {
-        "registers": {"ER": 16, "EP": 8},
+        "runtime_schema_version": 1,
+        "registers": {
+            "ER": 16,
+            "TR": 8,
+            "TR_max_lanes": MAX_TRIT_LANES,
+            "TR_encoding": "balanced",
+            "EP": 8,
+            "TEMP": "read-only derived aggregate",
+        },
+        "diagnostics": {
+            "schema_version": DIAGNOSTIC_SCHEMA_VERSION,
+            "snapshot_keys": ["tr", "temp"],
+            "temp_thermal_mass": {"ER": 1, "field": "cell length"},
+        },
         "partition_steps": [3, 9, 27, 81, 243],
         "banks": {
             "WORK": "default warmer bank",
@@ -73,6 +103,46 @@ def spec_payload() -> Dict[str, object]:
             "ARCHIVE": "stable medium-cold bank",
             "SACRED": "coldest low-guard bank",
         },
+        "thermal_models": {
+            "schema_version": THERMAL_MODEL_SCHEMA_VERSION,
+            "default": "simple",
+            "aliases": dict(THERMAL_MODEL_ALIASES),
+            "models": {
+                model_id: model.to_dict()
+                for model_id, model in sorted(THERMAL_MODELS.items())
+            },
+        },
+        "aging_models": {
+            "schema_version": AGING_MODEL_SCHEMA_VERSION,
+            "default": "simple-v0",
+            "aliases": dict(AGING_MODEL_ALIASES),
+            "instruction_stress": dict(sorted(INSTRUCTION_STRESS.items())),
+            "models": {
+                model_id: model.to_dict()
+                for model_id, model in sorted(AGING_MODELS.items())
+            },
+        },
+        "task_capabilities": [
+            "read",
+            "write",
+            "observe_continuous",
+            "observe_discrete",
+            "change_mode",
+            "refresh",
+            "snapshot",
+            "thermal_control",
+        ],
+        "instruction_lifecycle": [
+            "semantic_effect",
+            "heat",
+            "thermal_exchange",
+            "ambient_cooling",
+            "aging",
+            "due_flags",
+            "tick",
+            "event",
+        ],
+        "metadata_contract": metadata_contract_payload(public_opcodes),
         "instructions": [instruction.to_dict() for instruction in INSTRUCTIONS],
     }
 

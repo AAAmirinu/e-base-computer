@@ -5,7 +5,7 @@
 この文書は、プログラム上で動作する **EPUエミュレーター** を作るための
 最初の詳細仕様です。
 
-実装済みv0の熱コスト、冷却、精度降格、観測、リフレッシュを具体例で読む場合は
+実装済みの熱コスト、冷却、精度降格、観測、refreshを具体例で読む場合は
 [E-base Computer Behavior Model](behavior_model.md) を参照してください。
 
 ここでのEPUは、成熟したE進コンピューターの中核にある
@@ -210,10 +210,19 @@ auto_refresh
 allow_degrade
 observer_mode
 thermal_model
+aging_model
 exception_policy
 ```
 
 エミュレーターでは、まず `auto_normalize = true` を既定にします。
+
+### 6.3 値メタデータ伝播
+
+全38命令の mode、temperature、noise、health、QoS、guard band、量子化状態、
+refresh時刻の伝播は、versioned schema として
+[metadata_contract_v1.md](metadata_contract_v1.md) に定義します。命令の意味効果と、
+その後に共通適用される heat/cooling/aging は別 phase です。実行可能な正本は
+`epu_metadata.metadata_contract_payload()` で、`ebase spec --json` にも埋め込まれます。
 
 ## 7. Eメモリ
 
@@ -448,9 +457,22 @@ ERESTORE target, name
 スナップショットを復元します。
 許容誤差を超える場合は `RESTORE_ERROR` を出します。
 
-## 11. 熱モデル v0
+## 11. 熱モデル
 
-v0では、熱モデルを単純にします。
+`CR.thermal_model` は実行可能なversionedモデルを選択します。既定値
+`simple` は互換モデル `simple-v0` のaliasです。`coupled` は
+`coupled-v1` のaliasです。係数と厳密な順序は
+[Thermal Models](thermal_models.md)を規定文書とします。
+
+`CR.aging_model` はnoise/health遷移を独立に選択します。既定の
+`simple-v0` は従来互換、opt-inの `aging-v1` は命令熱、work stress、
+観測、refresh、field couplingをseed不要で決定論的に接続します。
+係数、更新順、refresh回復上限は
+[Noise and health aging models](aging_models.md)を規定文書とします。
+
+### 11.1 simple-v0
+
+従来互換モデルでは、各E場を独立した温度ノードとして扱います。
 
 各E場は温度 `T` を持ちます。
 
@@ -480,6 +502,14 @@ q_max(T) = floor(e / (2 * guard(T)))
 - `allow_degrade = true` なら降格して `DEGRADED` を立てる。
 - `allow_degrade = false` なら `THERMAL_PRECISION_ERROR` を出す。
 
+### 11.2 coupled-v1
+
+`coupled-v1` は命令熱を加えた後、同一バンク内のE場、その次にバンク間で
+熱交換し、最後にバンク固有の周囲冷却を適用します。E場の熱容量はセル数に
+比例します。熱交換は同時更新され、周囲冷却を除けば重み付き総熱量を保存し、
+平衡温度を行き過ぎません。未知のモデル名は `THERMAL_MODEL_ERROR` で
+fail-closedになります。
+
 ## 12. 例外
 
 EPU例外は、普通のプログラム例外とE進特有の状態異常に分かれます。
@@ -490,6 +520,8 @@ BAD_OPERAND
 MODE_ERROR
 PERMISSION_ERROR
 THERMAL_PRECISION_ERROR
+THERMAL_MODEL_ERROR
+AGING_MODEL_ERROR
 GUARD_BAND_ERROR
 NORMALIZATION_OVERFLOW
 OBSERVATION_ERROR

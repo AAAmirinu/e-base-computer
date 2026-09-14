@@ -6,9 +6,11 @@ __pycache__/
 .ruff_cache/
 .venv/
 dist/
+release-dist/
 build/
-.ai/audits/
-.ai/fable-auditor/
+.ai/
+.agents/
+.codex/
 generated-assembly/
 private_materials/
 .env

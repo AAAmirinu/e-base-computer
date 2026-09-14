@@ -11,6 +11,12 @@ from cstyle_compiler import CStyleCompiler
 from emulator import EPUEmulator
 from epu_experiments import Experiment, get_experiment, list_experiments
 from epu_scoring import ProgramScore, score_timeline
+from epu_version import SOURCE_VERSION
+
+
+CHALLENGE_SCHEMA_VERSION = 2
+OFFICIAL_SCORING_MODEL = "official-score-v1"
+NUMERICAL_SCORING_MODEL = "numerical-score-v1"
 
 
 EXPECTED_OUTPUTS: Dict[str, Dict[str, float]] = {
@@ -289,6 +295,10 @@ def count_assembly_lines(assembly: str) -> int:
 def summarize_suite(results: List[ChallengeResult]) -> Dict[str, object]:
     total_score = round(sum(result.score.score for result in results), 6)
     return {
+        "challenge_schema_version": CHALLENGE_SCHEMA_VERSION,
+        "emulator_version": SOURCE_VERSION,
+        "suite": "official",
+        "scoring_model": OFFICIAL_SCORING_MODEL,
         "correct": all(result.correct for result in results),
         "total_score": total_score,
         "results": [result.to_dict() for result in results],
@@ -299,7 +309,10 @@ def summarize_numerical_suite(
     results: List[NumericalChallengeResult],
 ) -> Dict[str, object]:
     return {
+        "challenge_schema_version": CHALLENGE_SCHEMA_VERSION,
+        "emulator_version": SOURCE_VERSION,
         "suite": "numerical",
+        "scoring_model": NUMERICAL_SCORING_MODEL,
         "correct": all(result.correct for result in results),
         "total_score": round(sum(result.numerical_score for result in results), 6),
         "performance_score": round(sum(result.score.score for result in results), 6),

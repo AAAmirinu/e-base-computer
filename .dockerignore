@@ -1,6 +1,7 @@
 .git
 .agents
 .ai
+.codex
 .devcontainer
 __pycache__/
 *.py[cod]
@@ -10,5 +11,15 @@ __pycache__/
 .ruff_cache/
 .venv/
 dist/
+release-dist/
 build/
 docs/assets/*.tmp
+generated-assembly/
+private_materials/
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key

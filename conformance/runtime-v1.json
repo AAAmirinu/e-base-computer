@@ -1,0 +1,73 @@
+{
+  "corpus_version": 1,
+  "runtime_schema_version": 1,
+  "float_tolerance": 1e-9,
+  "scope": "Common deterministic assembly semantics shared by Python, local server, and static browser runtimes.",
+  "cases": [
+    {
+      "id": "const-observe",
+      "source": "ECONST ER0, 7.5\nEOBS OUT0, ER0 ; precision=8\n",
+      "expected": {
+        "output": {"OUT0": 7.5}, "steps": 2, "halted": false,
+        "ops": ["ECONST", "EOBS"], "ticks": [0, 1],
+        "flags": [["NORMALIZED"], ["OBSERVATION_DIRTY"]],
+        "registers": {"ER0": {"real": 7.5, "temperature": 0.04, "current_partition": 3}},
+        "fields": {}
+      }
+    },
+    {
+      "id": "arithmetic-heat",
+      "source": "ECONST ER0, 4\nECONST ER1, 5\nEADD ER2, ER0, ER1\nECONST ER3, 2\nEMUL ER4, ER2, ER3\nEOBS OUT0, ER4 ; precision=8\n",
+      "expected": {
+        "output": {"OUT0": 18.0}, "steps": 6, "halted": false,
+        "ops": ["ECONST", "ECONST", "EADD", "ECONST", "EMUL", "EOBS"],
+        "ticks": [0, 1, 2, 3, 4, 5],
+        "flags": [["NORMALIZED"], ["NORMALIZED"], ["NORMALIZED"], ["NORMALIZED"], ["NORMALIZED"], ["OBSERVATION_DIRTY"]],
+        "registers": {
+          "ER2": {"real": 9.0, "temperature": 0.035, "current_partition": 3},
+          "ER4": {"real": 18.0, "temperature": 0.145, "current_partition": 3}
+        },
+        "fields": {}
+      }
+    },
+    {
+      "id": "cold-memory-roundtrip",
+      "source": "ECONST ER0, 7.5\nEALLOC EP0, COLD, 4 ; mode=EWORD\nESTORE EP0, ER0\nELOAD ER1, EP0\nEOBS OUT0, ER1 ; precision=8\n",
+      "expected": {
+        "output": {"OUT0": 7.5}, "steps": 5, "halted": false,
+        "ops": ["ECONST", "EALLOC", "ESTORE", "ELOAD", "EOBS"],
+        "ticks": [0, 1, 2, 3, 4],
+        "flags": [["NORMALIZED"], [], [], [], ["OBSERVATION_DIRTY"]],
+        "registers": {"ER1": {"real": 7.5, "temperature": 0.09, "current_partition": 3}},
+        "fields": {"F0": {"bank_id": "COLD", "length": 4, "current_partition": 3}}
+      }
+    },
+    {
+      "id": "taken-branch-halt",
+      "source": "ECONST ER0, -1\nEJLTZ ER0, negative\nECONST ER1, 0\nEJMP done\nnegative:\nECONST ER1, 1\ndone:\nEOBS OUT0, ER1 ; precision=8\nEHALT\n",
+      "expected": {
+        "output": {"OUT0": 1.0}, "steps": 5, "halted": true,
+        "ops": ["ECONST", "EJLTZ", "ECONST", "EOBS", "EHALT"],
+        "ticks": [0, 1, 2, 3, 4],
+        "flags": [["NORMALIZED"], [], ["NORMALIZED"], ["OBSERVATION_DIRTY"], []],
+        "registers": {"ER1": {"real": 1.0, "temperature": 0.035, "current_partition": 3}},
+        "fields": {}
+      }
+    },
+    {
+      "id": "quantize-dequantize",
+      "source": "ECONST ER0, 1\nEQUANT ER1, ER0, 3\nEDEQ ER2, ER1\nEOBS OUT0, ER2 ; precision=12\n",
+      "expected": {
+        "output": {"OUT0": 1.35914091423}, "steps": 4, "halted": false,
+        "ops": ["ECONST", "EQUANT", "EDEQ", "EOBS"],
+        "ticks": [0, 1, 2, 3],
+        "flags": [["NORMALIZED"], ["QUANTIZED"], [], ["OBSERVATION_DIRTY"]],
+        "registers": {
+          "ER1": {"real": 1.3591409142295225, "temperature": 0.05, "current_partition": 3},
+          "ER2": {"real": 1.3591409142295225, "temperature": 0.11, "current_partition": 3}
+        },
+        "fields": {}
+      }
+    }
+  ]
+}
