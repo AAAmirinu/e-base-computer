@@ -1,0 +1,21 @@
+[Unit]
+Description=Dedicated EBase sandbox manager with display isolation
+Requires=systemd-tmpfiles-setup.service
+After=network.target systemd-tmpfiles-setup.service
+
+[Service]
+Type=exec
+User=fleet
+WorkingDirectory=/home/fleet
+Environment=HOME=/home/fleet
+Environment=WSL_DISTRO_NAME=EBase-Sandboxes
+UnsetEnvironment=DISPLAY WAYLAND_DISPLAY PULSE_SERVER DBUS_SESSION_BUS_ADDRESS SSH_AUTH_SOCK SSH_AGENT_PID XDG_RUNTIME_DIR
+ExecStart=/usr/bin/sbx daemon start
+PrivatePIDs=yes
+InaccessiblePaths=/mnt/wslg /tmp/.X11-unix /run/WSL /run/user
+Restart=no
+KillMode=control-group
+TimeoutStopSec=30
+
+# Deliberately no Install section: enabling automatic model/VM resume is not
+# part of manager installation. Explicit start and recovery remain required.

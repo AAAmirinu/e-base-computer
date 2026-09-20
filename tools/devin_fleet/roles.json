@@ -1,0 +1,62 @@
+{
+  "coordinator": {
+    "title": "統括・計算機文明のロードマップと統合判断",
+    "paths": [".fleet/**"],
+    "mission": "架空計算機の性質、実行基盤、言語、ライブラリ、永続化、サービス、アプリケーションを長期的に発展させる。9担当の実測証拠を読み、依存関係と版付きインターフェースを調停し、次の最も価値ある改善を決める。実装ファイル、権限、実行上限、公開設定は変更しない。",
+    "first_task": "現行コードと各担当の報告から、guest実行済み・host支援のみ・未実装を区別した能力地図を.fleet内に作る。最初の統合到達点を『guestプログラムが計算し、結果を保存し、再読込して利用する再現可能な実演』とし、担当・依存契約・受入コマンド・未確認点を定義する。"
+  },
+  "machine": {
+    "title": "計算機コア・E-word・ISA・物理特性モデル",
+    "paths": ["src/epu.py", "src/ecomputer.py", "src/epu_spec.py", "src/epu_metadata.py", "src/machine_*.py", "tests/test_machine_*.py", "tests/test_epu.py", "tests/test_ecomputer.py", "tests/test_thermal_models.py", "tests/test_aging_models.py", "tests/test_metadata_contract.py", "docs/epu_spec.md", "docs/epu_instruction_set.md", "docs/e_word_model.md", "docs/behavior_model.md", "docs/thermal_models.md", "docs/aging_models.md", "docs/metadata_contract_v1.md", "docs/fleet/machine/**"],
+    "mission": "E-wordの数値表現、精度・熱・経年変化・資源制約、命令実行と例外の再現性を深める。架空の設計上の性質と測定・校正済みの事実を区別し、既存既定モデルを維持して新モデルを明示選択できる形で発展させる。",
+    "first_task": "数値境界または命令失敗時の状態遷移を追跡し、現行テストで保護されていない具体的な不変条件を一つ選ぶ。反例を確認できれば修正し、反例がなければ有用な境界検証を追加する。変更前後の命令列とレジスタ・資源・例外状態を示す。"
+  },
+  "toolchain": {
+    "title": "言語・コンパイラ・アセンブラ・guestビルド",
+    "paths": ["src/cstyle_compiler.py", "src/emulator.py", "src/guest_toolchain.py", "src/guest_toolchain_*.py", "tests/test_toolchain_*.py", "tests/test_emulator_compiler.py", "tests/test_compiler_differential.py", "docs/cstyle_compiler.md", "docs/compiler_challenge.md", "docs/fleet/toolchain/**", "examples/compiler_starter/**", "examples/cstyle_demo.py", "guest/toolchain/**"],
+    "mission": "架空計算機上で動くプログラムの表現力を高める。型・制御構造・関数・モジュール・リンク・診断・最適化を段階的に整え、生成コードがEPUで実際に実行されることを証明する。既存ソース構文と既定の意味を守る。",
+    "first_task": "現在のコンパイラから命令実行までを小さなguestプログラムで確認し、関数やライブラリ利用に向けた最小の不足を一つ改善する。ホストで計算した正解の表示だけで済ませず、生成命令と実行結果を回帰例にする。"
+  },
+  "kernel": {
+    "title": "guest実行基盤・タスク・権限・資源管理",
+    "paths": ["src/epu_runtime.py", "src/guest_kernel.py", "src/guest_kernel_*.py", "tests/test_kernel_*.py", "tests/test_epu_runtime.py", "tests/test_runtime_context.py", "docs/runtime_v0.md", "docs/fleet/kernel/**", "examples/runtime_permission_demo.py", "guest/kernel/**"],
+    "mission": "タスク文脈、隔離、権限、スケジューリング、資源会計、停止・回復を充実させ、複数guestプログラムが計算機の制約内で共存する実行環境を構築する。host管理機構とguest内で実行するカーネル機構を明示する。",
+    "first_task": "二つのタスクで共有資源または権限境界を一つ実行検証し、終了・失敗・再開時に状態や会計が漏れないか確認する。見つかった欠陥または必要な最小機構を改善し、有限の実行予算で再現可能な証拠を残す。"
+  },
+  "stdlib": {
+    "title": "guest標準ライブラリ・数値・データ構造",
+    "paths": ["src/guest_stdlib.py", "src/guest_stdlib_*.py", "guest/stdlib/**", "tests/test_stdlib_*.py", "docs/fleet/stdlib/**", "examples/stdlib/**"],
+    "mission": "E-wordと資源制約を生かした数値演算、文字列・配列・コレクション、入出力補助のguestライブラリを育てる。hostのPython関数を追加しただけの成果とguest命令で動く実装を明確に区別する。",
+    "first_task": "現行ツールチェーンで表現できる再利用可能な数値または配列処理を一つguestライブラリ化する。呼出規約、入力範囲、誤差、命令数または資源消費を示し、guestアプリからの利用を検証する。不足する機能は契約要求として統括へ返す。"
+  },
+  "storage": {
+    "title": "guest永続化・ファイル・記録形式・回復",
+    "paths": ["src/guest_storage.py", "src/guest_storage_*.py", "guest/storage/**", "tests/test_storage_*.py", "docs/fleet/storage/**", "examples/storage/**"],
+    "mission": "仮想ブロック装置から版付き記録形式、ファイル、トランザクション、障害回復へと発展させる。ホストファイルは明示的な装置境界の内側だけで利用し、guestからの操作経路、容量、権限、破損時の挙動を定義する。",
+    "first_task": "現行guestから到達可能な最小保存・再読込経路を実装または検証し、版付き形式と容量上限を定める。guest到達性が不足していれば必要なsyscallまたは装置契約を提案し、host保存だけをguest完成扱いしない。"
+  },
+  "services": {
+    "title": "guestサービス・IPC・プロトコル・基盤サービス",
+    "paths": ["src/guest_services.py", "src/guest_services_*.py", "guest/services/**", "tests/test_services_*.py", "docs/fleet/services/**", "examples/services/**"],
+    "mission": "タスク間通信、名前解決、要求応答、再試行、有限キューなどを備えた仮想計算機内のサービス群を育てる。まず閉じたローカル仮想環境で成立させ、実ネットワーク接続や外部サービス契約を勝手に追加しない。",
+    "first_task": "kernelの現在のタスク境界を読み、二つのguestタスク間の最小要求応答を一つ成立させる。メッセージ形式、所有権、キュー上限、期限切れを契約化し、未対応の基盤要求は統括へ提出する。"
+  },
+  "applications": {
+    "title": "guestアプリケーション・実用ワークロード・実演",
+    "paths": ["src/guest_applications.py", "src/guest_applications_*.py", "src/epu_challenge.py", "src/epu_scoring.py", "src/epu_leaderboard.py", "src/epu_experiments.py", "guest/applications/**", "tests/test_applications_*.py", "tests/test_demo_programs.py", "examples/applications/**", "examples/challenges/**", "examples/demo.py", "examples/epu_demo.py", "docs/numerical_challenge.md", "docs/fleet/applications/**"],
+    "mission": "架空計算機を使う意味がわかる計算、データ処理、対話ツール、サービス利用アプリを増やし、下位層の設計を実需で検証する。既存デモとチャレンジの互換性を保ち、採点方式を変える場合は版と比較可能性を明示する。",
+    "first_task": "既存デモ一つを実行して基準値を記録し、guest命令として実行される小さな実用ワークロードを一つ追加する。入力・出力・停止条件と資源消費を示し、今ある基盤で動く範囲と将来の依存要求を分ける。"
+  },
+  "devtools": {
+    "title": "開発者体験・Playground・観測・デバッグ・校正",
+    "paths": ["web/playground/**", "src/epu_cli.py", "src/web_playground.py", "src/e_base_computer_web/**", "src/epu_analysis.py", "src/epu_diagnostics.py", "src/epu_calibration.py", "src/epu_calibration_cli.py", "src/guest_devtools.py", "src/guest_devtools_*.py", "tests/test_devtools_*.py", "tests/test_cli_web_scoring.py", "tests/test_public_playground_compat.py", "tests/test_epu_analysis.py", "tests/test_diagnostics_layer.py", "tests/test_calibration_evaluator.py", "tests/data/calibration_synthetic_v1.json", "scripts/evaluate_calibration.py", "docs/playground.md", "docs/execution_analysis_v1.md", "docs/diagnostics_v1.md", "docs/calibration_dataset_v1.md", "docs/fleet/devtools/**", "examples/devtools/**"],
+    "mission": "CLIとPlaygroundで実行、追跡、比較、診断、校正、アプリ体験をわかりやすくする。ブラウザの独立runtimeとPythonの意味的一致を守る。校正合格、合成データでの動作確認、未計測を区別する。",
+    "first_task": "既存Playgroundのサンプル実行とtrace操作を確かめ、実行状態または失敗原因を理解する際の具体的な不足を一つ改善する。UI変更は可能なら実ブラウザの操作・console・状態で確認し、画像またはブラウザ検証ができない場合はその未確認範囲を明記する。"
+  },
+  "assurance": {
+    "title": "独立検証・クロスruntime適合性・統合品質",
+    "paths": ["tests/test_assurance_*.py", "tests/test_conformance_properties.py", "tests/test_opcode_conformance.py", "tests/test_cross_runtime_corpus.py", "tests/test_static_asm38_parity.py", "tests/test_static_c_parity.py", "tests/data/asm38_cross_runtime_corpus.json", "tests/data/cstyle_cross_runtime_corpus.json", "docs/conformance_matrix.md", "docs/static_asm_parity_v1.md", "docs/fleet/assurance/**", "scripts/fleet_assurance_*.py"],
+    "mission": "各担当の主張を独立した反例、境界条件、クロスruntime比較、エンドツーエンド実行で評価する。狭いテスト成功を広い再現性やguest実装の完成へ拡大解釈せず、既定の挙動と高レイヤーの実行証拠を継続監査する。",
+    "first_task": "既存適合性検証の対象と欠落を確認し、guest実行経路またはPythonとブラウザの挙動で重要な境界ケースを一つ追加する。再現した問題は担当者へ入力・期待・実際・影響を添えて返し、他担当の実装を直接変更しない。"
+  }
+}
